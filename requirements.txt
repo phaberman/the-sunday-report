@@ -1,1 +1,2 @@
 pytest>=8.0
+nflreadpy>=0.1

@@ -47,3 +47,21 @@ python -m pytest -q
 ```
 
 Covers smoke + flatten logic for the odds CSV shape.
+
+## Matchup ranks dataset
+
+Historical REG-season games (2016–2025) with **point-in-time** offense/defense ranks from season-to-date points for / points against.
+
+Rules:
+- Week 1 → everyone tied at rank 1 (no games yet)
+- Week N ranks use only weeks `1..N-1` (no look-ahead)
+- Ties share a dense rank; bye weeks carry cumulative totals forward
+- Scores on the row are **labels** for training, not features for that week
+
+```bash
+python scripts/build_matchup_ranks.py
+```
+
+Writes `data/features/matchups_pf_pa_ranks.csv`.
+
+Columns: `season`, `week`, `game_id`, `away_team`, `home_team`, `away_off_rank`, `away_def_rank`, `home_off_rank`, `home_def_rank`, `away_score`, `home_score`.
