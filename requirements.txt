@@ -1,2 +1,3 @@
 pytest>=8.0
 nflreadpy>=0.1
+dash>=2.14
