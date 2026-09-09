@@ -71,7 +71,7 @@ def fetch(api_key: str) -> tuple[list[dict], dict[str, str]]:
         {
             "apiKey": api_key,
             "regions": "us",
-            "markets": "spreads",
+            "markets": "spreads,totals",
             "oddsFormat": "american",
         }
     )
