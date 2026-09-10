@@ -1,0 +1,17 @@
+matchup_id,away_team,home_team,spread,decision
+1,NE,SEA,SEA -3.5,cover
+2,SF,LAR,LAR -3.5,cover
+3,TB,CIN,CIN -3.5,cover
+4,NO,DET,DET -6.5,points
+5,NYJ,TEN,TEN -1.5,cover
+6,BAL,IND,BAL -3.5,points
+7,ATL,PIT,PIT -3.5,cover
+8,CHI,CAR,CHI -2.5,cover
+9,CLE,JAX,JAX -8.5,points
+10,BUF,HOU,BUF -1,points
+11,MIA,LV,LV -3.5,points
+12,GB,MIN,MIN -1.5,cover
+13,WAS,PHI,PHI -5,cover
+14,ARI,LAC,LAC -10,points
+15,DAL,NYG,DAL -2.5,cover
+16,DEN,KC,KC -3,points
