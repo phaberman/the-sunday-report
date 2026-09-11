@@ -2,7 +2,7 @@ import csv
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-PICKS_CSV = ROOT / "data" / "picks" / "picks.csv"
+PICKS_CSV = ROOT / "data" / "picks" / "2026-wk01-preseason_model.csv"
 SCHEDULE_CSV = ROOT / "data" / "schedules" / "2026_schedule.csv"
 
 
@@ -12,12 +12,7 @@ def load_csv(path):
 
 
 def load_picks():
-    rows = load_csv(PICKS_CSV)
-    for r in rows:
-        r["pred_margin"] = float(r["pred_margin"])
-        r["home_win_prob"] = float(r["home_win_prob"])
-        r["clf_win_prob"] = float(r["clf_win_prob"])
-    return rows
+    return load_csv(PICKS_CSV)
 
 
 def load_schedule():

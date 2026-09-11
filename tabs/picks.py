@@ -8,22 +8,20 @@ from ui import MUTED, csv_columns, table
 def tab():
     rows = load_picks()
     cols = csv_columns(rows)
-    if rows:
-        pct = Format(precision=1, scheme=Scheme.percentage)
-        for col in cols:
-            if col["id"] in ("home_win_prob", "clf_win_prob"):
-                col["type"] = "numeric"
-                col["format"] = pct
-            elif col["id"] == "pred_margin":
-                col["type"] = "numeric"
-                col["format"] = Format(precision=1)
-    week = rows[0]["week"] if rows else "?"
-    season = rows[0]["season"] if rows else "?"
+    pct = Format(precision=1, scheme=Scheme.percentage)
+    num = Format(precision=2)
+    for col in cols:
+        if col["id"] in ("home_win_prob", "decision_prob", "p_over_honest", "p_over"):
+            col["type"] = "numeric"
+            col["format"] = pct
+        elif col["id"] in ("spread_line", "pred_margin", "pred_margin_scaled"):
+            col["type"] = "numeric"
+            col["format"] = num
     return dcc.Tab(
         label="Picks",
         value="picks",
         children=[
-            html.P(f"{season} · Week {week}", style={"color": MUTED, "marginTop": 16}),
-            table(rows, cols, highlight_pick=True),
+            html.P("2026 · Week 1", style={"color": MUTED, "marginTop": 16}),
+            table(rows, cols),
         ],
     )
