@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block body %}
+<p class="muted">Season to date · completed games only</p>
+<div class="cards">
+  <div class="card"><div class="n">{{ closer.model }}</div><div class="l">Model closer</div></div>
+  <div class="card"><div class="n">{{ closer.vegas }}</div><div class="l">Vegas closer</div></div>
+  <div class="card"><div class="n">{{ closer.tie }}</div><div class="l">Ties</div></div>
+</div>
+<div class="cards">
+  <div class="card"><div class="n">{{ ats.cover }}</div><div class="l">ATS cover</div></div>
+  <div class="card"><div class="n">{{ ats.loss }}</div><div class="l">ATS loss</div></div>
+  <div class="card"><div class="n">{{ ats.push }}</div><div class="l">ATS push</div></div>
+  <div class="card"><div class="n">{{ ats.no_bet }}</div><div class="l">No bet</div></div>
+</div>
+<table>
+  <thead>
+    <tr><th>Week</th><th>Model closer</th><th>Vegas closer</th><th>Ties</th><th>ATS cover</th><th>ATS loss</th></tr>
+  </thead>
+  <tbody>
+    {% for w in by_week %}
+    <tr>
+      <td>{{ w.season }} · {{ w.week }}</td>
+      <td>{{ w.closer.model }}</td>
+      <td>{{ w.closer.vegas }}</td>
+      <td>{{ w.closer.tie }}</td>
+      <td>{{ w.ats.cover }}</td>
+      <td>{{ w.ats.loss }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No completed games yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

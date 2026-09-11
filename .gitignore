@@ -5,3 +5,4 @@ __pycache__/
 .env
 *.parquet
 .pytest_cache/
+data/sunday.db

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block body %}
+<p class="muted">{{ season }} · Week {{ week }}</p>
+<form class="form" style="margin-bottom:16px">
+  <label>Week
+    <select name="week" hx-get="/results" hx-target="#board" hx-select="#board" hx-swap="outerHTML">
+      {% for s, w in week_list %}
+      <option value="{{ w }}" {% if w == week %}selected{% endif %}>{{ s }} · {{ w }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+<div id="board">
+  <div class="cards">
+    <div class="card"><div class="n">{{ closer.model }}</div><div class="l">Model closer</div></div>
+    <div class="card"><div class="n">{{ closer.vegas }}</div><div class="l">Vegas closer</div></div>
+    <div class="card"><div class="n">{{ closer.tie }}</div><div class="l">Ties</div></div>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="n">{{ ats.cover }}</div><div class="l">ATS cover</div></div>
+    <div class="card"><div class="n">{{ ats.loss }}</div><div class="l">ATS loss</div></div>
+    <div class="card"><div class="n">{{ ats.push }}</div><div class="l">ATS push</div></div>
+    <div class="card"><div class="n">{{ ats.no_bet }}</div><div class="l">No bet</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Game</th><th>Model</th><th>Vegas</th><th>Actual</th><th>Closer</th><th>ATS</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.game }}</td>
+        <td class="{{ 'closest' if r.closer == 'model' else '' }}">{{ r.model }}</td>
+        <td class="{{ 'closest' if r.closer == 'vegas' else '' }}">{{ r.vegas }}</td>
+        <td>{{ r.actual }}</td>
+        <td>{{ r.closer }}</td>
+        <td>{{ r.ats }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No games.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

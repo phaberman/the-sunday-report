@@ -1,6 +1,6 @@
 # The Sunday Report
 
-Probabilistic NFL game forecasts, published before kickoff and frozen. Market odds are the yardstick.
+Probabilistic NFL game forecasts, published before kickoff and frozen.
 
 ## Setup
 
@@ -11,33 +11,24 @@ pip install -r requirements.txt
 ```
 
 ```bash
-python app.py
+uvicorn app:app --reload
 ```
 
-## Odds snapshots
+Open http://127.0.0.1:8000
 
-One-shot pull of NFL spreads from [The Odds API](https://the-odds-api.com/). Run by hand.
+First launch creates `data/sunday.db` and seeds Week 1 model lines from `data/picks/week_01.csv`.
 
-```bash
-cp .env.example .env
-# edit .env and set ODDS_API_KEY=...
-python scripts/fetch_odds_once.py
-```
+## Upload
 
-Writes a timestamped CSV under `data/odds/snapshots/`. Columns: `pulled_at`, game id/teams/kickoff, `bookmaker`, `market`, `outcome`, `price`, `point`.
+`/upload` accepts CSV or Excel (`away_team, home_team, spread`).
+
+- **Model picks** → upsert `model_margin`, save `data/picks/week_NN.csv`
+- **Vegas lines** → upsert `vegas_margin`, save `data/vegas/week_NN.xlsx`
+
+Commit those files yourself. The database is gitignored.
 
 ## Tests
 
 ```bash
 python -m pytest -q
 ```
-
-## Matchup ranks
-
-Rebuild historical PF/PA ranks (2016–2025, point-in-time, no look-ahead):
-
-```bash
-python scripts/build_matchup_ranks.py
-```
-
-Writes `data/features/matchups_pf_pa_ranks.csv`.

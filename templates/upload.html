@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block body %}
+<p class="muted">CSV or Excel. Same columns: away_team, home_team, spread. Writes a file under data/ and upserts SQLite. Commit the file yourself.</p>
+{% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+{% if error %}<p class="flash" style="color:#8b1e1e">{{ error }}</p>{% endif %}
+<form class="form" method="post" action="/upload" enctype="multipart/form-data">
+  <label>Season
+    <input type="number" name="season" value="2026" required>
+  </label>
+  <label>Week
+    <input type="number" name="week" value="1" min="1" required>
+  </label>
+  <label>Kind
+    <select name="kind">
+      <option value="model">Model picks</option>
+      <option value="vegas">Vegas lines</option>
+    </select>
+  </label>
+  <label>File
+    <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
+  </label>
+  <button type="submit">Upload</button>
+</form>
+{% endblock %}
