@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<p class="muted">{{ season }} · Week {{ week }}</p>
+<form class="form" style="margin-bottom:16px">
+  <label>Week
+    <select name="week" hx-get="/results" hx-target="#board" hx-swap="outerHTML">
+      {% for s, w in week_list %}
+      <option value="{{ w }}" {% if w == week %}selected{% endif %}>{{ s }} · {{ w }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+{% include "partials/results_board.html" %}
+{% endblock %}

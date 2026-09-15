@@ -1,10 +1,9 @@
 from io import BytesIO
 
-import db
-import ingest
 from datetime import date
 
-from odds import (
+from app import db, ingest
+from app.odds import (
     apply_dk_games,
     current_week,
     dk_home_point,
@@ -14,7 +13,7 @@ from odds import (
     team_code,
     week_row,
 )
-from score import view_game
+from app.score import view_game
 
 
 def _sched():

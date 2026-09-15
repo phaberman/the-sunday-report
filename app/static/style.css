@@ -45,14 +45,14 @@ h1 {
   letter-spacing: 0.02em;
 }
 .tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   padding: 3px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-  min-width: 13.5rem;
 }
 .tabs a {
   color: rgba(255, 255, 255, 0.78);

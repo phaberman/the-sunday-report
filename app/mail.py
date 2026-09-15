@@ -6,8 +6,8 @@ import os
 import smtplib
 from email.message import EmailMessage
 
-from db import ROOT
-from odds import load_dotenv
+from app.db import ROOT
+from app.odds import load_dotenv
 
 
 def parse_recipients(raw: str) -> list[str]:

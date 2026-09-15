@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from spreads import ats, closer, explain_spread, format_spread
-from odds import format_kickoff
+from app.spreads import ats, closer, explain_spread, format_spread
+from app.odds import format_kickoff
 
 
 def actual_margin(row) -> float | None:

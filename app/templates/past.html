@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block body %}
+{% if not week_list %}
+<p class="muted">No stored past spreads yet. Pull this week’s lines, then they’ll show up here after the week is over.</p>
+{% else %}
+{% include "partials/past_board.html" %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+<div id="board">
+  <p class="muted">{{ season }} · Week {{ week }}</p>
+  <div class="toolbar">
+    <form class="form">
+      <label>Week
+        <select name="week" hx-get="/past" hx-target="#board" hx-swap="outerHTML">
+          {% for s, w in week_list %}
+          <option value="{{ w }}" {% if w == week %}selected{% endif %}>{{ s }} · {{ w }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+    <a class="btn btn-ghost" href="/export/past?week={{ week }}">Export Excel</a>
+  </div>
+  {% with empty="No spreads stored for this week." %}
+  {% include "partials/spread_table.html" %}
+  {% endwith %}
+</div>

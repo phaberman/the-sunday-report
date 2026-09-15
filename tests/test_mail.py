@@ -1,4 +1,4 @@
-import mail
+from app import mail
 
 
 def test_parse_recipients():

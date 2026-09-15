@@ -11,12 +11,18 @@ pip install -r requirements.txt
 ```
 
 ```bash
-uvicorn app:app --reload
+uvicorn app.main:app --reload
 ```
 
 Open http://127.0.0.1:8000
 
-First launch creates `data/sunday.db` and seeds Week 1 model lines from `data/picks/week_01.csv`.
+Layout:
+
+- `app/` — FastAPI app (`main.py`, `routers/`, Jinja templates, static)
+- `data/` — SQLite file (gitignored), schedule, pick CSVs
+- `scripts/` — one-shot fetches, not the web process
+
+First launch creates `data/sunday.db` and loads the 2026 schedule. Week 1 model seed still looks for `data/picks/week_01.csv` if that file exists.
 
 ## Upload
 

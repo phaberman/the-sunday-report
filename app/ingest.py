@@ -6,8 +6,8 @@ import csv
 import io
 from pathlib import Path
 
-from db import ROOT, upsert_game
-from spreads import norm_team, to_home_margin
+from app.db import ROOT, upsert_game
+from app.spreads import norm_team, to_home_margin
 
 PICKS_DIR = ROOT / "data" / "picks"
 VEGAS_DIR = ROOT / "data" / "vegas"
@@ -95,7 +95,7 @@ def seed_week01(conn) -> int:
 
 def ensure_schedule(conn, path: Path | None = None) -> int:
     """Insert 2026 REG matchups if missing. Null margins stay null (COALESCE)."""
-    from odds import load_schedule, schedule_kickoff
+    from app.odds import load_schedule, schedule_kickoff
 
     rows = load_schedule(path)
     for row in rows:

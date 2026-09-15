@@ -1,0 +1,133 @@
+"""This-week and past-week spread boards."""
+
+from __future__ import annotations
+
+from urllib.parse import quote
+
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+
+from app import db, mail, odds
+from app.deps import DbConn, SEASON, is_htmx, templates
+from app.score import view_game
+
+router = APIRouter()
+
+
+def _xlsx(rows: list[dict], season: int, week: int) -> Response:
+    name = f"{season}_week_{week:02d}_spreads.xlsx"
+    return Response(
+        content=odds.export_week_xlsx(rows),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+def _live_week() -> tuple[int, int]:
+    return odds.current_week()
+
+
+def _past_week_list(conn) -> list[tuple[int, int]]:
+    stored = set(db.weeks_with_spreads(conn))
+    return [w for w in odds.past_weeks() if w in stored]
+
+
+def _pick_past(week_list: list[tuple[int, int]], week: int | None) -> tuple[int, int]:
+    season, shown = week_list[-1]
+    if week is not None:
+        for s, w in week_list:
+            if w == week:
+                return s, w
+    return season, shown
+
+
+@router.get("/", response_class=HTMLResponse)
+def picks(request: Request, conn: DbConn, flash: str = "", error: str = ""):
+    season, week = _live_week()
+    rows = [view_game(r) for r in db.games_for(conn, season, week)]
+    return templates.TemplateResponse(
+        request,
+        "picks.html",
+        {
+            "season": season,
+            "week": week,
+            "rows": rows,
+            "flash": flash,
+            "error": error,
+            "nav": "now",
+            "email_to": ", ".join(mail.recipients_from_env()),
+        },
+    )
+
+
+@router.post("/refresh")
+def refresh(conn: DbConn):
+    try:
+        info = odds.refresh_spreads(conn)
+        msg = (
+            f"updated {info['n']} games · "
+            f"API calls remaining {info['remaining']} (used {info['used']})"
+        )
+        return RedirectResponse(f"/?flash={quote(msg)}", status_code=303)
+    except Exception as e:
+        return RedirectResponse(f"/?error={quote(str(e))}", status_code=303)
+
+
+@router.get("/export")
+def export_xlsx(conn: DbConn):
+    season, week = _live_week()
+    rows = [view_game(r) for r in db.games_for(conn, season, week)]
+    return _xlsx(rows, season, week)
+
+
+@router.post("/email")
+def email_week(conn: DbConn):
+    try:
+        to = mail.recipients_from_env()
+        season, week = _live_week()
+        rows = [view_game(r) for r in db.games_for(conn, season, week)]
+        filename = f"{season}_week_{week:02d}_spreads.xlsx"
+        n = mail.send_xlsx(
+            to=to,
+            subject=f"The Sunday Report: Week {week} Spreads",
+            body=f"Attached are the spreads for week {week} of the 2026 NFL Season.",
+            filename=filename,
+            data=odds.export_week_xlsx(rows),
+        )
+        return RedirectResponse(f"/?flash={quote(f'sent to {n} addresses')}", status_code=303)
+    except Exception as e:
+        return RedirectResponse(f"/?error={quote(str(e))}", status_code=303)
+
+
+@router.get("/past", response_class=HTMLResponse)
+def past(request: Request, conn: DbConn, week: int | None = None):
+    week_list = _past_week_list(conn)
+    ctx = {
+        "season": SEASON,
+        "week": None,
+        "week_list": week_list,
+        "rows": [],
+        "nav": "past",
+    }
+    if week_list:
+        season, shown = _pick_past(week_list, week)
+        ctx.update(
+            {
+                "season": season,
+                "week": shown,
+                "rows": [view_game(r) for r in db.games_for(conn, season, shown)],
+            }
+        )
+    if is_htmx(request):
+        return templates.TemplateResponse(request, "partials/past_board.html", ctx)
+    return templates.TemplateResponse(request, "past.html", ctx)
+
+
+@router.get("/export/past")
+def export_past_xlsx(conn: DbConn, week: int | None = None):
+    week_list = _past_week_list(conn)
+    if not week_list:
+        return RedirectResponse("/past", status_code=303)
+    season, w = _pick_past(week_list, week)
+    rows = [view_game(r) for r in db.games_for(conn, season, w)]
+    return _xlsx(rows, season, w)

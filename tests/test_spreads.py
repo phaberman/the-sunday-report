@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import db
-import ingest
-from spreads import ats, closer, explain_spread, format_spread, to_home_margin
+from app import db, ingest
+from app.spreads import ats, closer, explain_spread, format_spread, to_home_margin
 
 
 def test_home_favorite():
@@ -31,7 +30,9 @@ def test_closer_and_ats():
 
 def test_ingest_week01(tmp_path: Path):
     conn = db.init(db.connect(tmp_path / "t.db"))
-    n = ingest.seed_week01(conn)
+    path = db.ROOT / "data" / "picks" / "2026_01_preseason_model.csv"
+    rows = ingest.parse_upload(path.name, path.read_bytes())
+    n = ingest.ingest_rows(conn, rows, season=2026, week=1, kind="model")
     assert n == 16
     g = db.games_for(conn, 2026, 1)
     sea = next(r for r in g if r["home_team"] == "SEA")

@@ -12,8 +12,8 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
-from db import ROOT, upsert_game
-from spreads import norm_team
+from app.db import ROOT, upsert_game
+from app.spreads import norm_team
 
 API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
 SCHEDULE_PATH = ROOT / "data" / "schedules" / "2026_schedule.csv"
