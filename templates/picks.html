@@ -1,28 +1,36 @@
 {% extends "base.html" %}
 {% block body %}
 <p class="muted">{{ season }} · Week {{ week }}</p>
-<form class="form" style="margin-bottom:16px">
-  <label>Week
-    <select name="week" hx-get="/" hx-target="#table" hx-select="#table" hx-swap="outerHTML">
-      {% for s, w in week_list %}
-      <option value="{{ w }}" {% if w == week %}selected{% endif %}>{{ s }} · {{ w }}</option>
-      {% endfor %}
-    </select>
-  </label>
-</form>
+{% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
+{% if error %}<p class="flash" style="color:#8b1e1e">{{ error }}</p>{% endif %}
+<div class="toolbar">
+  <form class="form" method="get" action="/">
+    <label>Week
+      <select name="week" onchange="this.form.submit()">
+        {% for s, w in week_list %}
+        <option value="{{ w }}" {% if w == week %}selected{% endif %}>{{ s }} · {{ w }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  <form method="post" action="/refresh?week={{ week }}">
+    <button type="submit">Get latest spreads</button>
+  </form>
+  <a class="btn" href="/export?week={{ week }}">Export Excel</a>
+</div>
 <div id="table">
   <table>
     <thead>
-      <tr><th>Game</th><th>Model</th></tr>
+      <tr><th>Matchup</th><th>Spread</th></tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
         <td>{{ r.game }}</td>
-        <td>{{ r.model }}</td>
+        <td>{{ r.vegas }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="2">No picks yet. Upload a CSV.</td></tr>
+      <tr><td colspan="2">No games this week.</td></tr>
       {% endfor %}
     </tbody>
   </table>

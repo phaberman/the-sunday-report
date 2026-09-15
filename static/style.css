@@ -34,6 +34,24 @@ table { width: 100%; border-collapse: collapse; background: #fff; font-family: s
 th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; }
 th { background: var(--header); color: var(--accent); }
 .form { font-family: system-ui, sans-serif; display: grid; gap: 12px; max-width: 420px; }
+.toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  font-family: system-ui, sans-serif;
+}
+.toolbar .form { max-width: none; margin: 0; }
+a.btn {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  padding: 10px 16px;
+  font: inherit;
+  text-decoration: none;
+  display: inline-block;
+}
 label { display: grid; gap: 4px; font-size: 14px; }
 input, select { padding: 8px; font: inherit; border: 1px solid var(--line); }
 button {

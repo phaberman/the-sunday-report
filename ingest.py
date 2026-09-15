@@ -91,3 +91,20 @@ def seed_week01(conn) -> int:
         return 0
     rows = parse_upload(path.name, path.read_bytes())
     return ingest_rows(conn, rows, season=2026, week=1, kind="model")
+
+
+def ensure_schedule(conn, path: Path | None = None) -> int:
+    """Insert 2026 REG matchups if missing. Null margins stay null (COALESCE)."""
+    from odds import load_schedule
+
+    rows = load_schedule(path)
+    for row in rows:
+        upsert_game(
+            conn,
+            season=row["season"],
+            week=row["week"],
+            away_team=row["away_team"],
+            home_team=row["home_team"],
+        )
+    conn.commit()
+    return len(rows)

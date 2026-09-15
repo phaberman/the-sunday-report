@@ -5,12 +5,13 @@ from contextlib import asynccontextmanager
 from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import db
 import ingest
+import odds
 from score import tally, view_game
 
 SEASON = 2026
@@ -19,6 +20,7 @@ SEASON = 2026
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     conn = db.init()
+    ingest.ensure_schedule(conn)
     if db.count_games(conn) == 0:
         ingest.seed_week01(conn)
     conn.close()
@@ -38,16 +40,24 @@ def _conn():
 
 def _pick_week(conn, week: int | None) -> tuple[int, int]:
     wlist = db.weeks(conn) or [(SEASON, 1)]
-    if week is None:
-        return wlist[-1]
-    for s, w in wlist:
-        if w == week:
-            return s, w
-    return wlist[-1]
+    if week is not None:
+        for s, w in wlist:
+            if w == week:
+                return s, w
+    lined = conn.execute(
+        """
+        SELECT season, week FROM games
+        WHERE vegas_margin IS NOT NULL
+        ORDER BY season, week
+        """
+    ).fetchall()
+    if lined:
+        return lined[-1]["season"], lined[-1]["week"]
+    return wlist[0]
 
 
 @app.get("/", response_class=HTMLResponse)
-def picks(request: Request, week: int | None = None):
+def picks(request: Request, week: int | None = None, flash: str = "", error: str = ""):
     conn = _conn()
     try:
         season, week = _pick_week(conn, week)
@@ -60,7 +70,47 @@ def picks(request: Request, week: int | None = None):
                 "week": week,
                 "week_list": db.weeks(conn) or [(season, week)],
                 "rows": rows,
+                "flash": flash,
+                "error": error,
             },
+        )
+    finally:
+        conn.close()
+
+
+@app.post("/refresh")
+def refresh(week: int | None = None):
+    conn = _conn()
+    try:
+        info = odds.refresh_spreads(conn)
+        _, week = _pick_week(conn, week)
+        msg = (
+            f"updated {info['n']} games · "
+            f"API calls remaining {info['remaining']} (used {info['used']})"
+        )
+        return RedirectResponse(
+            f"/?week={week}&flash={quote(msg)}",
+            status_code=303,
+        )
+    except Exception as e:
+        q = f"week={week}&error={quote(str(e))}" if week else f"error={quote(str(e))}"
+        return RedirectResponse(f"/?{q}", status_code=303)
+    finally:
+        conn.close()
+
+
+@app.get("/export")
+def export_xlsx(week: int | None = None):
+    conn = _conn()
+    try:
+        season, week = _pick_week(conn, week)
+        rows = [view_game(r) for r in db.games_for(conn, season, week)]
+        data = odds.export_week_xlsx(rows)
+        name = f"{season}_week_{week:02d}_spreads.xlsx"
+        return Response(
+            content=data,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )
     finally:
         conn.close()
