@@ -2,7 +2,7 @@ from io import BytesIO
 
 from datetime import date
 
-from app import db, ingest
+from app import db
 from app.odds import (
     apply_dk_games,
     current_week,
@@ -83,7 +83,6 @@ def test_current_week_skips_finished_and_future():
 
 def test_apply_dk_and_export(tmp_path):
     conn = db.init(db.connect(tmp_path / "t.db"))
-    ingest.ensure_schedule(conn)
     games = [
         {
             "commence_time": "2026-09-18T00:15:00Z",
@@ -105,13 +104,20 @@ def test_apply_dk_and_export(tmp_path):
             ],
         }
     ]
-    n = apply_dk_games(conn, games, only=(2026, 2))
+    n = apply_dk_games(conn, games, schedule=_sched(), only=(2026, 2))
     assert n == 1
-    row = next(r for r in db.games_for(conn, 2026, 2) if r["home_team"] == "BUF")
-    assert row["vegas_margin"] == 3.0
-    assert row["kickoff"] == "2026-09-18T00:15:00Z"
+    row = next(r for r in db.games_for(conn, 2026, 2) if r.home_team == "BUF")
+    assert row.vegas_margin == 3.0
+    assert row.kickoff == "2026-09-18T00:15:00Z"
     w2 = db.games_for(conn, 2026, 2)
-    assert w2[0]["home_team"] == "BUF"
+    assert w2[0].home_team == "BUF"
+    snaps = db.vegas_spreads_for(conn)
+    assert len(snaps) == 1
+    assert snaps[0].home_team == "BUF"
+    assert snaps[0].away_team == "DET"
+    assert snaps[0].spread == "BUF -3"
+    assert snaps[0].kickoff == "2026-09-18T00:15:00Z"
+    assert snaps[0].created_at is not None
     xlsx = export_week_xlsx([view_game(row)])
     assert xlsx[:2] == b"PK"  # zip/xlsx
     from openpyxl import load_workbook

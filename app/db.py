@@ -1,51 +1,38 @@
-"""SQLite games table."""
+"""SQLAlchemy engine, sessions, and game queries."""
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
+
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.orm import Session
+
+from app.models import Base, Game, VegasSpread
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "sunday.db"
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS games (
-  season INTEGER NOT NULL,
-  week INTEGER NOT NULL,
-  away_team TEXT NOT NULL,
-  home_team TEXT NOT NULL,
-  model_margin REAL,
-  vegas_margin REAL,
-  home_score INTEGER,
-  away_score INTEGER,
-  kickoff TEXT,
-  PRIMARY KEY (season, week, away_team, home_team)
-);
-"""
 
-
-def connect(path: Path | None = None) -> sqlite3.Connection:
+def connect(path: Path | None = None) -> Session:
     p = path or DB_PATH
     p.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(p)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    engine = create_engine(f"sqlite:///{p}", connect_args={"check_same_thread": False})
+    return Session(engine)
 
 
-def init(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
-    own = conn is None
-    c = connect() if own else conn
-    c.executescript(SCHEMA)
-    cols = {r[1] for r in c.execute("PRAGMA table_info(games)")}
-    if "kickoff" not in cols:
-        c.execute("ALTER TABLE games ADD COLUMN kickoff TEXT")
-    c.commit()
-    return c
+def init(session: Session | None = None) -> Session:
+    s = session or connect()
+    bind = s.get_bind()
+    Base.metadata.create_all(bind)
+    cols = {row[1] for row in s.execute(text("PRAGMA table_info(games)"))}
+    if cols and "kickoff" not in cols:
+        s.execute(text("ALTER TABLE games ADD COLUMN kickoff TEXT"))
+        s.commit()
+    return s
 
 
 def upsert_game(
-    conn: sqlite3.Connection,
+    session: Session,
     *,
     season: int,
     week: int,
@@ -57,73 +44,71 @@ def upsert_game(
     away_score: int | None = None,
     kickoff: str | None = None,
     replace_kickoff: bool = False,
-) -> None:
-    if kickoff is not None and replace_kickoff:
-        kick_sql = ", kickoff = excluded.kickoff"
-    elif kickoff is not None:
-        kick_sql = ", kickoff = COALESCE(kickoff, excluded.kickoff)"
-    else:
-        kick_sql = ""
-    conn.execute(
-        f"""
-        INSERT INTO games (season, week, away_team, home_team,
-                           model_margin, vegas_margin, home_score, away_score, kickoff)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(season, week, away_team, home_team) DO UPDATE SET
-          model_margin = COALESCE(excluded.model_margin, model_margin),
-          vegas_margin = COALESCE(excluded.vegas_margin, vegas_margin),
-          home_score = COALESCE(excluded.home_score, home_score),
-          away_score = COALESCE(excluded.away_score, away_score)
-          {kick_sql}
-        """,
-        (
-            season,
-            week,
-            away_team,
-            home_team,
-            model_margin,
-            vegas_margin,
-            home_score,
-            away_score,
-            kickoff,
-        ),
+) -> Game:
+    game = session.get(Game, (season, week, away_team, home_team))
+    if game is None:
+        game = Game(
+            season=season,
+            week=week,
+            away_team=away_team,
+            home_team=home_team,
+            model_margin=model_margin,
+            vegas_margin=vegas_margin,
+            home_score=home_score,
+            away_score=away_score,
+            kickoff=kickoff,
+        )
+        session.add(game)
+        return game
+    if model_margin is not None:
+        game.model_margin = model_margin
+    if vegas_margin is not None:
+        game.vegas_margin = vegas_margin
+    if home_score is not None:
+        game.home_score = home_score
+    if away_score is not None:
+        game.away_score = away_score
+    if kickoff is not None and (replace_kickoff or game.kickoff is None):
+        game.kickoff = kickoff
+    return game
+
+
+def weeks(session: Session) -> list[tuple[int, int]]:
+    rows = session.execute(
+        select(Game.season, Game.week).distinct().order_by(Game.season, Game.week)
+    ).all()
+    return [(r.season, r.week) for r in rows]
+
+
+def weeks_with_spreads(session: Session) -> list[tuple[int, int]]:
+    rows = session.execute(
+        select(Game.season, Game.week)
+        .where(Game.vegas_margin.is_not(None))
+        .distinct()
+        .order_by(Game.season, Game.week)
+    ).all()
+    return [(r.season, r.week) for r in rows]
+
+
+def games_for(session: Session, season: int, week: int) -> list[Game]:
+    return list(
+        session.scalars(
+            select(Game)
+            .where(Game.season == season, Game.week == week)
+            .order_by(Game.kickoff.is_(None), Game.kickoff, Game.away_team, Game.home_team)
+        ).all()
     )
 
 
-def weeks(conn: sqlite3.Connection) -> list[tuple[int, int]]:
-    rows = conn.execute(
-        "SELECT DISTINCT season, week FROM games ORDER BY season, week"
-    ).fetchall()
-    return [(r["season"], r["week"]) for r in rows]
+def all_games(session: Session) -> list[Game]:
+    return list(
+        session.scalars(select(Game).order_by(Game.season, Game.week, Game.away_team)).all()
+    )
 
 
-def weeks_with_spreads(conn: sqlite3.Connection) -> list[tuple[int, int]]:
-    rows = conn.execute(
-        """
-        SELECT DISTINCT season, week FROM games
-        WHERE vegas_margin IS NOT NULL
-        ORDER BY season, week
-        """
-    ).fetchall()
-    return [(r["season"], r["week"]) for r in rows]
+def count_games(session: Session) -> int:
+    return int(session.scalar(select(func.count()).select_from(Game)) or 0)
 
 
-def games_for(conn: sqlite3.Connection, season: int, week: int) -> list[sqlite3.Row]:
-    return conn.execute(
-        """
-        SELECT * FROM games
-        WHERE season = ? AND week = ?
-        ORDER BY kickoff IS NULL, kickoff, away_team, home_team
-        """,
-        (season, week),
-    ).fetchall()
-
-
-def all_games(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return conn.execute(
-        "SELECT * FROM games ORDER BY season, week, away_team"
-    ).fetchall()
-
-
-def count_games(conn: sqlite3.Connection) -> int:
-    return conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
+def vegas_spreads_for(session: Session) -> list[VegasSpread]:
+    return list(session.scalars(select(VegasSpread).order_by(VegasSpread.id)).all())

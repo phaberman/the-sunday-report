@@ -35,13 +35,13 @@ def test_ingest_week01(tmp_path: Path):
     n = ingest.ingest_rows(conn, rows, season=2026, week=1, kind="model")
     assert n == 16
     g = db.games_for(conn, 2026, 1)
-    sea = next(r for r in g if r["home_team"] == "SEA")
-    assert sea["away_team"] == "NE"
-    assert sea["model_margin"] == 3.5
-    lar = next(r for r in g if r["home_team"] == "LA")
-    assert lar["model_margin"] == 3.5
-    hou = next(r for r in g if r["home_team"] == "HOU")
-    assert hou["model_margin"] == -1.0
+    sea = next(r for r in g if r.home_team == "SEA")
+    assert sea.away_team == "NE"
+    assert sea.model_margin == 3.5
+    lar = next(r for r in g if r.home_team == "LA")
+    assert lar.model_margin == 3.5
+    hou = next(r for r in g if r.home_team == "HOU")
+    assert hou.model_margin == -1.0
     ingest.ingest_rows(
         conn,
         [{"away_team": "NE", "home_team": "SEA", "spread": "SEA -7"}],
@@ -49,7 +49,6 @@ def test_ingest_week01(tmp_path: Path):
         week=1,
         kind="vegas",
     )
-    sea = db.games_for(conn, 2026, 1)[0]
-    sea = next(r for r in db.games_for(conn, 2026, 1) if r["home_team"] == "SEA")
-    assert sea["vegas_margin"] == 7.0
-    assert sea["model_margin"] == 3.5
+    sea = next(r for r in db.games_for(conn, 2026, 1) if r.home_team == "SEA")
+    assert sea.vegas_margin == 7.0
+    assert sea.model_margin == 3.5

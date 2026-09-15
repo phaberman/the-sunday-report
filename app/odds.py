@@ -13,7 +13,8 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from app.db import ROOT, upsert_game
-from app.spreads import norm_team
+from app.models import VegasSpread
+from app.spreads import format_spread, norm_team
 
 API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
 SCHEDULE_PATH = ROOT / "data" / "schedules" / "2026_schedule.csv"
@@ -80,6 +81,8 @@ def team_code(name: str) -> str:
 
 def load_schedule(path: Path | None = None) -> list[dict]:
     p = path or SCHEDULE_PATH
+    if not p.is_file():
+        return []
     rows = []
     with p.open(newline="") as f:
         for row in csv.DictReader(f):
@@ -137,6 +140,8 @@ def current_week(
 ) -> tuple[int, int]:
     """Smallest REG week whose last gameday is today or later."""
     last_by = _week_last_days(schedule)
+    if not last_by:
+        return (2026, 1)
     today = today or datetime.now(DISPLAY_TZ).date()
     live = sorted(k for k, last in last_by.items() if last >= today)
     if live:
@@ -203,14 +208,16 @@ def fetch_dk(api_key: str) -> tuple[list[dict], dict[str, str]]:
 
 
 def apply_dk_games(
-    conn,
+    session,
     games: list[dict],
     schedule: list[dict] | None = None,
     *,
     only: tuple[int, int] | None = None,
+    pulled_at: datetime | None = None,
 ) -> int:
-    """Upsert vegas_margin from DK home points. Returns games updated."""
+    """Upsert vegas_margin from DK home points. Also appends vegas_spreads. Returns games updated."""
     sched = schedule if schedule is not None else load_schedule()
+    created_at = pulled_at or datetime.now(timezone.utc)
     n = 0
     for game in games:
         point = dk_home_point(game)
@@ -223,33 +230,45 @@ def apply_dk_games(
             continue
         if only is not None and (hit["season"], hit["week"]) != only:
             continue
+        margin = -point
+        kickoff = game.get("commence_time") or None
         upsert_game(
-            conn,
+            session,
             season=hit["season"],
             week=hit["week"],
             away_team=away,
             home_team=home,
-            vegas_margin=-point,
-            kickoff=game.get("commence_time") or None,
+            vegas_margin=margin,
+            kickoff=kickoff,
             replace_kickoff=True,
         )
+        session.add(
+            VegasSpread(
+                kickoff=kickoff,
+                home_team=home,
+                away_team=away,
+                spread=format_spread(away, home, margin),
+                created_at=created_at,
+            )
+        )
         n += 1
-    conn.commit()
+    session.commit()
     return n
 
 
-def refresh_spreads(conn) -> dict[str, str | int]:
+def refresh_spreads(session) -> dict[str, str | int]:
     load_dotenv(ROOT / ".env")
     api_key = os.environ.get("ODDS_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("Missing ODDS_API_KEY")
     games, headers = fetch_dk(api_key)
-    n = apply_dk_games(conn, games, only=current_week())
+    pulled_at = datetime.now(timezone.utc)
+    n = apply_dk_games(session, games, only=current_week(), pulled_at=pulled_at)
     return {
         "n": n,
         "remaining": headers.get("x-requests-remaining", "?"),
         "used": headers.get("x-requests-used", "?"),
-        "pulled_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "pulled_at": pulled_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 

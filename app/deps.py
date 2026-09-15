@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import sqlite3
 from collections.abc import Generator
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 
 from app import db
 
@@ -17,16 +17,19 @@ templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 SEASON = 2026
 
 
-def get_db() -> Generator[sqlite3.Connection, None, None]:
-    conn = db.connect()
-    db.init(conn)
+def get_db() -> Generator[Session, None, None]:
+    session = db.init(db.connect())
     try:
-        yield conn
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
-        conn.close()
+        session.close()
 
 
-DbConn = Annotated[sqlite3.Connection, Depends(get_db)]
+DbConn = Annotated[Session, Depends(get_db)]
 
 
 def is_htmx(request: Request) -> bool:

@@ -20,15 +20,9 @@ def _pick_week(conn, week: int | None) -> tuple[int, int]:
         for s, w in wlist:
             if w == week:
                 return s, w
-    lined = conn.execute(
-        """
-        SELECT season, week FROM games
-        WHERE vegas_margin IS NOT NULL
-        ORDER BY season, week
-        """
-    ).fetchall()
+    lined = db.weeks_with_spreads(conn)
     if lined:
-        return lined[-1]["season"], lined[-1]["week"]
+        return lined[-1]
     return wlist[0]
 
 
@@ -58,7 +52,7 @@ def season(request: Request, conn: DbConn):
         v = view_game(raw)
         if not v["closer"]:
             continue
-        grouped[(raw["season"], raw["week"])].append(v)
+        grouped[(raw.season, raw.week)].append(v)
         all_rows.append(v)
     by_week = []
     for (s, w), rows in sorted(grouped.items()):
