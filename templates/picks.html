@@ -2,17 +2,17 @@
 {% block body %}
 <p class="muted">{{ season }} · Week {{ week }}</p>
 {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
-{% if error %}<p class="flash" style="color:#8b1e1e">{{ error }}</p>{% endif %}
+{% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
 <div class="toolbar">
   <form method="post" action="/refresh">
-    <button type="submit">Get latest spreads</button>
+    <button class="btn-primary" type="submit">Get latest spreads</button>
   </form>
-  <a class="btn" href="/export">Export Excel</a>
-  <form method="post" action="/email">
-    <button type="submit">Email</button>
+  <a class="btn btn-ghost" href="/export">Export Excel</a>
+  <form method="post" action="/email" onsubmit="return confirm({{ ('Send week %s spreads to %s?' % (week, email_to or 'EMAIL_TO')) | tojson }})">
+    <button class="btn-ghost" type="submit">Email</button>
   </form>
 </div>
-<div id="table">
+<div class="table-card" id="table">
   <table>
     <thead>
       <tr><th>Index</th><th>Kickoff</th><th>Matchup</th><th>Home Team</th><th>Away Team</th><th>Spread</th></tr>
@@ -20,12 +20,12 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td>{{ r.index }}</td>
-        <td>{{ r.kickoff }}</td>
+        <td class="mono">{{ r.index }}</td>
+        <td class="mono">{{ r.kickoff }}</td>
         <td>{{ r.game }}</td>
         <td>{{ r.home_team }}</td>
         <td>{{ r.away_team }}</td>
-        <td>{{ r.vegas }}</td>
+        <td class="spread">{% if r.vegas_hint %}<span class="tip">{{ r.vegas_hint }}</span>{% endif %}{{ r.vegas }}</td>
       </tr>
       {% else %}
       <tr><td colspan="6">No games this week.</td></tr>

@@ -2,12 +2,15 @@ from pathlib import Path
 
 import db
 import ingest
-from spreads import ats, closer, format_spread, to_home_margin
+from spreads import ats, closer, explain_spread, format_spread, to_home_margin
 
 
 def test_home_favorite():
     assert to_home_margin("NE", "SEA", "SEA -3.5") == 3.5
     assert format_spread("NE", "SEA", 3.5) == "SEA -3.5"
+    assert explain_spread("DET", "BUF", 4.5) == "BUF is favored by 4.5 points."
+    assert explain_spread("BUF", "HOU", -1.0) == "BUF is favored by 1 point."
+    assert explain_spread("NE", "SEA", 0.0) == "Neither team is favored (pick'em)."
 
 
 def test_away_favorite_and_lar():

@@ -2,7 +2,7 @@
 {% block body %}
 <p class="muted">CSV or Excel. Same columns: away_team, home_team, spread. Writes a file under data/ and upserts SQLite. Commit the file yourself.</p>
 {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
-{% if error %}<p class="flash" style="color:#8b1e1e">{{ error }}</p>{% endif %}
+{% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
 <form class="form" method="post" action="/upload" enctype="multipart/form-data">
   <label>Season
     <input type="number" name="season" value="2026" required>

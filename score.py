@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from spreads import ats, closer, format_spread
+from spreads import ats, closer, explain_spread, format_spread
 from odds import format_kickoff
 
 
@@ -31,6 +31,7 @@ def view_game(row) -> dict:
         "game": f"{row['away_team']} @ {row['home_team']}",
         "model": format_spread(row["away_team"], row["home_team"], model),
         "vegas": format_spread(row["away_team"], row["home_team"], vegas),
+        "vegas_hint": explain_spread(row["away_team"], row["home_team"], vegas),
         "actual": format_spread(row["away_team"], row["home_team"], actual),
         "closer": "",
         "ats": "",

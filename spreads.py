@@ -70,6 +70,17 @@ def format_spread(away: str, home: str, margin: float | None) -> str:
     return f"{away} -{_trim_num(-margin)}"
 
 
+def explain_spread(away: str, home: str, margin: float | None) -> str:
+    if margin is None:
+        return ""
+    if abs(margin) < 1e-9:
+        return "Neither team is favored (pick'em)."
+    pts = abs(margin)
+    word = "point" if pts == 1 else "points"
+    fav = home if margin > 0 else away
+    return f"{fav} is favored by {_trim_num(pts)} {word}."
+
+
 def closer(model: float, vegas: float, actual: float) -> str:
     me, ve = abs(model - actual), abs(vegas - actual)
     if me < ve:

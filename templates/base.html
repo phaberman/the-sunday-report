@@ -8,12 +8,16 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
-  <div class="wrap">
-    <h1>The Sunday Report</h1>
-    <nav>
-      <a href="/" {% if nav == "now" %}class="active"{% endif %}>This week</a>
-      <a href="/past" {% if nav == "past" %}class="active"{% endif %}>Past</a>
-    </nav>
+  <header class="top">
+    <div class="wrap top-inner">
+      <h1>The Sunday Report</h1>
+      <nav class="tabs">
+        <a href="/" {% if nav == "now" %}class="active"{% endif %}>This week</a>
+        <a href="/past" {% if nav == "past" %}class="active"{% endif %}>Past</a>
+      </nav>
+    </div>
+  </header>
+  <div class="wrap main">
     {% block body %}{% endblock %}
   </div>
 </body>

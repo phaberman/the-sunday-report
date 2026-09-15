@@ -14,9 +14,9 @@
       </select>
     </label>
   </form>
-  <a class="btn" href="/export/past?week={{ week }}">Export Excel</a>
+  <a class="btn btn-ghost" href="/export/past?week={{ week }}">Export Excel</a>
 </div>
-<div id="table">
+<div class="table-card" id="table">
   <table>
     <thead>
       <tr><th>Index</th><th>Kickoff</th><th>Matchup</th><th>Home Team</th><th>Away Team</th><th>Spread</th></tr>
@@ -24,12 +24,12 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td>{{ r.index }}</td>
-        <td>{{ r.kickoff }}</td>
+        <td class="mono">{{ r.index }}</td>
+        <td class="mono">{{ r.kickoff }}</td>
         <td>{{ r.game }}</td>
         <td>{{ r.home_team }}</td>
         <td>{{ r.away_team }}</td>
-        <td>{{ r.vegas }}</td>
+        <td class="spread">{% if r.vegas_hint %}<span class="tip">{{ r.vegas_hint }}</span>{% endif %}{{ r.vegas }}</td>
       </tr>
       {% else %}
       <tr><td colspan="6">No spreads stored for this week.</td></tr>

@@ -77,6 +77,7 @@ def picks(request: Request, flash: str = "", error: str = ""):
                 "flash": flash,
                 "error": error,
                 "nav": "now",
+                "email_to": ", ".join(mail.recipients_from_env()),
             },
         )
     finally:
