@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 import db
 import ingest
+import mail
 import odds
 from score import tally, view_game
 
@@ -111,6 +112,28 @@ def export_xlsx():
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )
+    finally:
+        conn.close()
+
+
+@app.post("/email")
+def email_week():
+    conn = _conn()
+    try:
+        to = mail.recipients_from_env()
+        season, week = _live_week()
+        rows = [view_game(r) for r in db.games_for(conn, season, week)]
+        filename = f"{season}_week_{week:02d}_spreads.xlsx"
+        n = mail.send_xlsx(
+            to=to,
+            subject=f"Sunday Report {season} week {week}",
+            body=f"{season} week {week} spreads attached.",
+            filename=filename,
+            data=odds.export_week_xlsx(rows),
+        )
+        return RedirectResponse(f"/?flash={quote(f'sent to {n} addresses')}", status_code=303)
+    except Exception as e:
+        return RedirectResponse(f"/?error={quote(str(e))}", status_code=303)
     finally:
         conn.close()
 
