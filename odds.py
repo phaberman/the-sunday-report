@@ -8,7 +8,8 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from db import ROOT, upsert_game
@@ -16,6 +17,8 @@ from spreads import norm_team
 
 API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
 SCHEDULE_PATH = ROOT / "data" / "schedules" / "2026_schedule.csv"
+DISPLAY_TZ = timezone(timedelta(hours=8))  # UTC+8; NFL week rolls Tue after MNF.
+ET = ZoneInfo("America/New_York")
 
 # Odds API full names → our codes
 NFL_NAMES = {
@@ -87,11 +90,66 @@ def load_schedule(path: Path | None = None) -> list[dict]:
                     "season": int(row["season"]),
                     "week": int(row["week"]),
                     "gameday": row["gameday"],
+                    "gametime": row.get("gametime") or "",
                     "away_team": norm_team(row["away_team"]),
                     "home_team": norm_team(row["home_team"]),
                 }
             )
     return rows
+
+
+def _week_last_days(
+    schedule: list[dict] | None = None,
+) -> dict[tuple[int, int], date]:
+    sched = schedule if schedule is not None else load_schedule()
+    last_by: dict[tuple[int, int], date] = {}
+    for r in sched:
+        key = (r["season"], r["week"])
+        d = datetime.strptime(r["gameday"], "%Y-%m-%d").date()
+        prev = last_by.get(key)
+        last_by[key] = d if prev is None else max(prev, d)
+    return last_by
+
+
+def schedule_kickoff(gameday: str, gametime: str) -> str | None:
+    # ponytail: treat nflverse kickoff as ET. Ceiling = London/Melbourne slots. Upgrade: venue TZ.
+    if not gameday:
+        return None
+    t = (gametime or "00:00").strip()
+    try:
+        dt = datetime.strptime(f"{gameday} {t}", "%Y-%m-%d %H:%M").replace(tzinfo=ET)
+    except ValueError:
+        return None
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def format_kickoff(iso: str | None) -> str:
+    if not iso:
+        return ""
+    dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M")
+
+
+def current_week(
+    schedule: list[dict] | None = None, today: date | None = None
+) -> tuple[int, int]:
+    """Smallest REG week whose last gameday is today or later."""
+    last_by = _week_last_days(schedule)
+    today = today or datetime.now(DISPLAY_TZ).date()
+    live = sorted(k for k, last in last_by.items() if last >= today)
+    if live:
+        return live[0]
+    return max(last_by)
+
+
+def past_weeks(
+    schedule: list[dict] | None = None, today: date | None = None
+) -> list[tuple[int, int]]:
+    last_by = _week_last_days(schedule)
+    today = today or datetime.now(DISPLAY_TZ).date()
+    return sorted(k for k, last in last_by.items() if last < today)
 
 
 def week_row(schedule: list[dict], away: str, home: str, commence_time: str) -> dict | None:
@@ -144,7 +202,13 @@ def fetch_dk(api_key: str) -> tuple[list[dict], dict[str, str]]:
     return body, headers
 
 
-def apply_dk_games(conn, games: list[dict], schedule: list[dict] | None = None) -> int:
+def apply_dk_games(
+    conn,
+    games: list[dict],
+    schedule: list[dict] | None = None,
+    *,
+    only: tuple[int, int] | None = None,
+) -> int:
     """Upsert vegas_margin from DK home points. Returns games updated."""
     sched = schedule if schedule is not None else load_schedule()
     n = 0
@@ -157,6 +221,8 @@ def apply_dk_games(conn, games: list[dict], schedule: list[dict] | None = None) 
         hit = week_row(sched, away, home, game.get("commence_time") or "")
         if hit is None:
             continue
+        if only is not None and (hit["season"], hit["week"]) != only:
+            continue
         upsert_game(
             conn,
             season=hit["season"],
@@ -164,6 +230,8 @@ def apply_dk_games(conn, games: list[dict], schedule: list[dict] | None = None) 
             away_team=away,
             home_team=home,
             vegas_margin=-point,
+            kickoff=game.get("commence_time") or None,
+            replace_kickoff=True,
         )
         n += 1
     conn.commit()
@@ -176,7 +244,7 @@ def refresh_spreads(conn) -> dict[str, str | int]:
     if not api_key:
         raise RuntimeError("Missing ODDS_API_KEY")
     games, headers = fetch_dk(api_key)
-    n = apply_dk_games(conn, games)
+    n = apply_dk_games(conn, games, only=current_week())
     return {
         "n": n,
         "remaining": headers.get("x-requests-remaining", "?"),
@@ -192,9 +260,18 @@ def export_week_xlsx(rows: list[dict]) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "spreads"
-    ws.append(["away_team", "home_team", "spread"])
+    ws.append(["Index", "Kickoff", "Matchup", "Home Team", "Away Team", "Spread"])
     for r in rows:
-        ws.append([r["away_team"], r["home_team"], r["vegas"]])
+        ws.append(
+            [
+                r.get("index") or "",
+                r.get("kickoff") or "",
+                r["game"],
+                r["home_team"],
+                r["away_team"],
+                r["vegas"],
+            ]
+        )
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()

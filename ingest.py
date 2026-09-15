@@ -95,7 +95,7 @@ def seed_week01(conn) -> int:
 
 def ensure_schedule(conn, path: Path | None = None) -> int:
     """Insert 2026 REG matchups if missing. Null margins stay null (COALESCE)."""
-    from odds import load_schedule
+    from odds import load_schedule, schedule_kickoff
 
     rows = load_schedule(path)
     for row in rows:
@@ -105,6 +105,7 @@ def ensure_schedule(conn, path: Path | None = None) -> int:
             week=row["week"],
             away_team=row["away_team"],
             home_team=row["home_team"],
+            kickoff=schedule_kickoff(row["gameday"], row.get("gametime") or ""),
         )
     conn.commit()
     return len(rows)

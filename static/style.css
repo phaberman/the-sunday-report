@@ -18,7 +18,7 @@ body {
 h1 { color: var(--accent); margin: 0 0 8px; font-weight: 600; }
 nav { margin: 16px 0 24px; font-family: system-ui, sans-serif; font-size: 14px; }
 nav a { color: var(--accent); margin-right: 16px; text-decoration: none; }
-nav a:hover { text-decoration: underline; }
+nav a.active { font-weight: 600; text-decoration: underline; }
 .muted { color: var(--muted); }
 .cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 24px; }
 .card {

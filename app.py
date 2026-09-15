@@ -38,6 +38,10 @@ def _conn():
     return c
 
 
+def _live_week() -> tuple[int, int]:
+    return odds.current_week()
+
+
 def _pick_week(conn, week: int | None) -> tuple[int, int]:
     wlist = db.weeks(conn) or [(SEASON, 1)]
     if week is not None:
@@ -57,10 +61,10 @@ def _pick_week(conn, week: int | None) -> tuple[int, int]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def picks(request: Request, week: int | None = None, flash: str = "", error: str = ""):
+def picks(request: Request, flash: str = "", error: str = ""):
     conn = _conn()
     try:
-        season, week = _pick_week(conn, week)
+        season, week = _live_week()
         rows = [view_game(r) for r in db.games_for(conn, season, week)]
         return templates.TemplateResponse(
             request,
@@ -68,10 +72,10 @@ def picks(request: Request, week: int | None = None, flash: str = "", error: str
             {
                 "season": season,
                 "week": week,
-                "week_list": db.weeks(conn) or [(season, week)],
                 "rows": rows,
                 "flash": flash,
                 "error": error,
+                "nav": "now",
             },
         )
     finally:
@@ -79,34 +83,95 @@ def picks(request: Request, week: int | None = None, flash: str = "", error: str
 
 
 @app.post("/refresh")
-def refresh(week: int | None = None):
+def refresh():
     conn = _conn()
     try:
         info = odds.refresh_spreads(conn)
-        _, week = _pick_week(conn, week)
         msg = (
             f"updated {info['n']} games · "
             f"API calls remaining {info['remaining']} (used {info['used']})"
         )
-        return RedirectResponse(
-            f"/?week={week}&flash={quote(msg)}",
-            status_code=303,
-        )
+        return RedirectResponse(f"/?flash={quote(msg)}", status_code=303)
     except Exception as e:
-        q = f"week={week}&error={quote(str(e))}" if week else f"error={quote(str(e))}"
-        return RedirectResponse(f"/?{q}", status_code=303)
+        return RedirectResponse(f"/?error={quote(str(e))}", status_code=303)
     finally:
         conn.close()
 
 
 @app.get("/export")
-def export_xlsx(week: int | None = None):
+def export_xlsx():
     conn = _conn()
     try:
-        season, week = _pick_week(conn, week)
+        season, week = _live_week()
         rows = [view_game(r) for r in db.games_for(conn, season, week)]
         data = odds.export_week_xlsx(rows)
         name = f"{season}_week_{week:02d}_spreads.xlsx"
+        return Response(
+            content=data,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
+    finally:
+        conn.close()
+
+
+@app.get("/past", response_class=HTMLResponse)
+def past(request: Request, week: int | None = None):
+    conn = _conn()
+    try:
+        stored = set(db.weeks_with_spreads(conn))
+        week_list = [w for w in odds.past_weeks() if w in stored]
+        if not week_list:
+            return templates.TemplateResponse(
+                request,
+                "past.html",
+                {
+                    "season": SEASON,
+                    "week": None,
+                    "week_list": [],
+                    "rows": [],
+                    "nav": "past",
+                },
+            )
+        season, shown = week_list[-1]
+        if week is not None:
+            for s, w in week_list:
+                if w == week:
+                    season, shown = s, w
+                    break
+        rows = [view_game(r) for r in db.games_for(conn, season, shown)]
+        return templates.TemplateResponse(
+            request,
+            "past.html",
+            {
+                "season": season,
+                "week": shown,
+                "week_list": week_list,
+                "rows": rows,
+                "nav": "past",
+            },
+        )
+    finally:
+        conn.close()
+
+
+@app.get("/export/past")
+def export_past_xlsx(week: int | None = None):
+    conn = _conn()
+    try:
+        stored = set(db.weeks_with_spreads(conn))
+        week_list = [w for w in odds.past_weeks() if w in stored]
+        if not week_list:
+            return RedirectResponse("/past", status_code=303)
+        season, w = week_list[-1]
+        if week is not None:
+            for s, ww in week_list:
+                if ww == week:
+                    season, w = s, ww
+                    break
+        rows = [view_game(r) for r in db.games_for(conn, season, w)]
+        data = odds.export_week_xlsx(rows)
+        name = f"{season}_week_{w:02d}_spreads.xlsx"
         return Response(
             content=data,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

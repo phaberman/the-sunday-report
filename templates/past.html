@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 {% block body %}
+{% if not week_list %}
+<p class="muted">No stored past spreads yet. Pull this week’s lines, then they’ll show up here after the week is over.</p>
+{% else %}
 <p class="muted">{{ season }} · Week {{ week }}</p>
-{% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
-{% if error %}<p class="flash" style="color:#8b1e1e">{{ error }}</p>{% endif %}
 <div class="toolbar">
-  <form method="post" action="/refresh">
-    <button type="submit">Get latest spreads</button>
+  <form class="form" method="get" action="/past">
+    <label>Week
+      <select name="week" onchange="this.form.submit()">
+        {% for s, w in week_list %}
+        <option value="{{ w }}" {% if w == week %}selected{% endif %}>{{ s }} · {{ w }}</option>
+        {% endfor %}
+      </select>
+    </label>
   </form>
-  <a class="btn" href="/export">Export Excel</a>
+  <a class="btn" href="/export/past?week={{ week }}">Export Excel</a>
 </div>
 <div id="table">
   <table>
@@ -25,9 +32,10 @@
         <td>{{ r.vegas }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="6">No games this week.</td></tr>
+      <tr><td colspan="6">No spreads stored for this week.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+{% endif %}
 {% endblock %}

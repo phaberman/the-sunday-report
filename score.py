@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from spreads import ats, closer, format_spread
+from odds import format_kickoff
 
 
 def actual_margin(row) -> float | None:
@@ -12,9 +13,18 @@ def actual_margin(row) -> float | None:
     return float(hs) - float(aws)
 
 
+def game_index(row) -> str:
+    # nflverse-style: year_week_away_home (DET @ BUF → 2026_02_det_buf)
+    return (
+        f"{row['season']}_{int(row['week']):02d}_"
+        f"{row['away_team'].lower()}_{row['home_team'].lower()}"
+    )
+
+
 def view_game(row) -> dict:
     actual = actual_margin(row)
     model, vegas = row["model_margin"], row["vegas_margin"]
+    kickoff = format_kickoff(row["kickoff"] if "kickoff" in row.keys() else None)
     out = {
         "away_team": row["away_team"],
         "home_team": row["home_team"],
@@ -26,6 +36,8 @@ def view_game(row) -> dict:
         "ats": "",
         "home_score": row["home_score"],
         "away_score": row["away_score"],
+        "kickoff": kickoff,
+        "index": game_index(row),
     }
     if actual is not None and model is not None and vegas is not None:
         out["closer"] = closer(model, vegas, actual)
