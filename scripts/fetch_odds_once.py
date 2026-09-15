@@ -40,7 +40,7 @@ def load_dotenv(path: Path) -> None:
             continue
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip().strip("'").strip('"')
-        os.environ.setdefault(key, value)
+        os.environ[key] = value
 
 
 def flatten(games: list[dict], pulled_at: str) -> list[dict]:

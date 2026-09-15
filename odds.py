@@ -68,7 +68,7 @@ def load_dotenv(path: Path) -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip().strip("'").strip(chr(34))
-        os.environ.setdefault(key, value)
+        os.environ[key] = value
 
 
 def team_code(name: str) -> str:
