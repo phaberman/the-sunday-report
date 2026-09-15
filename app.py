@@ -126,8 +126,8 @@ def email_week():
         filename = f"{season}_week_{week:02d}_spreads.xlsx"
         n = mail.send_xlsx(
             to=to,
-            subject=f"Sunday Report {season} week {week}",
-            body=f"{season} week {week} spreads attached.",
+            subject=f"The Sunday Report: Week {week} Spreads",
+            body=f"Attached are the spreads for week {week} of the 2026 NFL Season.",
             filename=filename,
             data=odds.export_week_xlsx(rows),
         )
