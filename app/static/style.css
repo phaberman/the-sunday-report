@@ -348,6 +348,21 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   margin-top: 16px;
   animation: meta-in 0.18s ease;
 }
+.meta-row .chip-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+}
+.meta-row .chip {
+  min-width: 0;
+}
+.meta-row .chip span {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 8px;
+  box-sizing: border-box;
+}
 .meta-other {
   margin-top: 10px;
   max-width: 16rem;
@@ -407,7 +422,11 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   min-height: 42px;
   font-size: 14px;
 }
-.seg-mode { max-width: 22rem; }
+.seg-mode {
+  width: 100%;
+  max-width: none;
+  grid-template-columns: 1fr 1fr;
+}
 .enter-table { margin-top: 4px; }
 .enter-table .pts-input {
   width: 5.5rem;
@@ -419,6 +438,16 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   background: #fff;
 }
 .enter-table .fav-row { flex-wrap: nowrap; }
+.enter-table .fav-row .chip span {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+  padding: 7px 0;
+  box-sizing: border-box;
+}
+.enter-table .fav-row .chip input:checked + span {
+  transform: none;
+}
 .enter-table .row-locked td { color: var(--muted); background: var(--stripe); }
 .locked-cell {
   display: flex;
@@ -439,6 +468,14 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .schema-help { margin-top: 18px; }
 .schema-cols { margin: 0 0 10px; }
 .schema-table { font-size: 13px; }
+.picks-table th.group {
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+.picks-table tr.subhead th {
+  background: var(--navy-2);
+  font-size: 10px;
+}
 @media (max-width: 640px) {
   .seg { max-width: none; }
 }

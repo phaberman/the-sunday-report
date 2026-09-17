@@ -44,6 +44,62 @@ def latest_picks(picks: list[Pick]) -> dict[str, Pick]:
     return best
 
 
+def _latest_by_source(picks: list[Pick]) -> dict[str, dict[str, Pick]]:
+    """Latest pick per source bucket (vegas/model/user) and identity name."""
+    out: dict[str, dict[str, Pick]] = {"vegas": {}, "model": {}, "user": {}}
+    for p in picks:
+        if p.source == "vegas":
+            bucket, name = "vegas", p.bookmaker or "?"
+        elif p.source == "model":
+            bucket, name = "model", p.model_version or "?"
+        elif p.source == "user":
+            bucket, name = "user", p.username or "?"
+        else:
+            continue
+        prev = out[bucket].get(name)
+        if prev is None or (p.created_at, p.id) > (prev.created_at, prev.id):
+            out[bucket][name] = p
+    return out
+
+
+def picks_board(matchups: list[Matchup]) -> dict:
+    """Rows and dynamic Vegas / Model / User columns for the picks table."""
+    vegas_cols: set[str] = set()
+    model_cols: set[str] = set()
+    user_cols: set[str] = set()
+    rows: list[dict] = []
+
+    for m in matchups:
+        by_source = _latest_by_source(list(m.picks))
+        vegas: dict[str, str] = {}
+        model: dict[str, str] = {}
+        user: dict[str, str] = {}
+        for name, p in by_source["vegas"].items():
+            vegas_cols.add(name)
+            vegas[name] = format_spread(m.away_team, m.home_team, p.spread)
+        for name, p in by_source["model"].items():
+            model_cols.add(name)
+            model[name] = format_spread(m.away_team, m.home_team, p.spread)
+        for name, p in by_source["user"].items():
+            user_cols.add(name)
+            user[name] = format_spread(m.away_team, m.home_team, p.spread)
+        rows.append(
+            {
+                "matchup": f"{m.away_team} @ {m.home_team}",
+                "vegas": vegas,
+                "model": model,
+                "user": user,
+            }
+        )
+
+    return {
+        "vegas_cols": sorted(vegas_cols),
+        "model_cols": sorted(model_cols),
+        "user_cols": sorted(user_cols),
+        "rows": rows,
+    }
+
+
 def view_matchup(m: Matchup) -> dict:
     actual = actual_margin(m)
     by_label = latest_picks(list(m.picks))

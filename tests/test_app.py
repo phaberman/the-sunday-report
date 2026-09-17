@@ -13,10 +13,87 @@ def test_html_pages_render():
         r = client.get("/", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/matchups"
-        for path in ("/matchups", "/upload"):
+        for path in ("/matchups", "/picks", "/upload"):
             r = client.get(path)
             assert r.status_code == 200, path
             assert "The Sunday Report" in r.text
+
+
+def test_picks_page_and_board(tmp_path: Path):
+    from app.models import Pick
+    from app.schedule import apply_schedule_rows
+    from app.score import picks_board
+
+    session = db.init(db.connect(tmp_path / "p.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 1,
+                "gameday": "2026-09-09",
+                "gametime": "20:20",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
+    m = db.matchups_for(session, 2026, 1)[0]
+    session.add(
+        Pick(
+            matchup_id=m.id,
+            spread=3.5,
+            source="vegas",
+            bookmaker="DraftKings",
+        )
+    )
+    session.add(
+        Pick(
+            matchup_id=m.id,
+            spread=4.0,
+            source="vegas",
+            bookmaker="MGM",
+        )
+    )
+    session.add(
+        Pick(
+            matchup_id=m.id,
+            spread=3.0,
+            source="model",
+            model_version="v1",
+        )
+    )
+    session.add(
+        Pick(
+            matchup_id=m.id,
+            spread=2.5,
+            source="user",
+            username="phil",
+        )
+    )
+    session.commit()
+
+    board = picks_board(db.matchups_for(session, 2026, 1))
+    assert board["vegas_cols"] == ["DraftKings", "MGM"]
+    assert board["model_cols"] == ["v1"]
+    assert board["user_cols"] == ["phil"]
+    row = board["rows"][0]
+    assert row["vegas"]["DraftKings"]
+    assert row["model"]["v1"]
+    assert row["user"]["phil"]
+
+    with TestClient(app) as client:
+        r = client.get("/picks")
+        assert r.status_code == 200
+        assert "Matchup" in r.text
+        assert 'class="picks-table"' in r.text
+
+        r = client.get("/picks", headers={"HX-Request": "true"})
+        assert r.status_code == 200
+        assert 'id="board"' in r.text
+        assert "<html" not in r.text.lower()
 
 
 def test_matchups_page_and_export():
