@@ -1,48 +1,80 @@
-"""Attach closer / ATS to game rows for templates."""
+"""Attach closer / ATS to matchup + picks for templates."""
 
 from __future__ import annotations
 
+from app.models import Matchup, Pick
 from app.odds import format_kickoff
 from app.spreads import ats, closer, explain_spread, format_spread
 
 
-def actual_margin(row) -> float | None:
-    hs, aws = row.home_score, row.away_score
-    if hs is None or aws is None:
+def actual_margin(m: Matchup) -> float | None:
+    if m.home_score is None or m.away_score is None:
         return None
-    return float(hs) - float(aws)
+    return float(m.home_score) - float(m.away_score)
 
 
-def game_index(row) -> str:
-    # nflverse-style: year_week_away_home (DET @ BUF → 2026_02_det_buf)
-    return (
-        f"{row.season}_{int(row.week):02d}_"
-        f"{row.away_team.lower()}_{row.home_team.lower()}"
-    )
+def pick_label(p: Pick) -> str:
+    if p.source == "vegas":
+        return "vegas"
+    if p.source == "model":
+        return f"model:{p.model_version or '?'}"
+    if p.source == "user":
+        return f"user:{p.username or '?'}"
+    return p.source
 
 
-def view_game(row) -> dict:
-    actual = actual_margin(row)
-    model, vegas = row.model_margin, row.vegas_margin
-    kickoff = format_kickoff(row.kickoff)
-    out = {
-        "away_team": row.away_team,
-        "home_team": row.home_team,
-        "game": f"{row.away_team} @ {row.home_team}",
-        "model": format_spread(row.away_team, row.home_team, model),
-        "vegas": format_spread(row.away_team, row.home_team, vegas),
-        "vegas_hint": explain_spread(row.away_team, row.home_team, vegas),
-        "actual": format_spread(row.away_team, row.home_team, actual),
-        "closer": "",
-        "ats": "",
-        "home_score": row.home_score,
-        "away_score": row.away_score,
-        "kickoff": kickoff,
-        "index": game_index(row),
+def latest_picks(picks: list[Pick]) -> dict[str, Pick]:
+    """Latest pick per label (by created_at, then id)."""
+    best: dict[str, Pick] = {}
+    for p in picks:
+        label = pick_label(p)
+        prev = best.get(label)
+        if prev is None or (p.created_at, p.id) > (prev.created_at, prev.id):
+            best[label] = p
+    return best
+
+
+def view_matchup(m: Matchup) -> dict:
+    actual = actual_margin(m)
+    by_label = latest_picks(list(m.picks))
+    vegas_pick = by_label.get("vegas")
+    vegas_margin = vegas_pick.spread if vegas_pick else None
+
+    spreads = {
+        label: format_spread(m.away_team, m.home_team, p.spread)
+        for label, p in sorted(by_label.items())
     }
-    if actual is not None and model is not None and vegas is not None:
-        out["closer"] = closer(model, vegas, actual)
-        out["ats"] = ats(model, vegas, actual)
+    margins = {label: p.spread for label, p in by_label.items()}
+
+    out: dict = {
+        "id": m.id,
+        "away_team": m.away_team,
+        "home_team": m.home_team,
+        "game": f"{m.away_team} @ {m.home_team}",
+        "kickoff": format_kickoff(m.kickoff),
+        "index": m.id,
+        "vegas": format_spread(m.away_team, m.home_team, vegas_margin),
+        "vegas_hint": explain_spread(m.away_team, m.home_team, vegas_margin),
+        "spreads": spreads,
+        "labels": list(spreads.keys()),
+        "actual": format_spread(m.away_team, m.home_team, actual),
+        "home_score": m.home_score,
+        "away_score": m.away_score,
+        "closer": "",
+        "ats": {},
+    }
+
+    if actual is not None and len(margins) >= 1:
+        out["closer"] = closer(margins, actual)
+
+    if vegas_margin is not None and actual is not None:
+        ats_map = {}
+        for label, margin in margins.items():
+            if label == "vegas":
+                continue
+            ats_map[label] = ats(margin, vegas_margin, actual)
+        out["ats"] = ats_map
+
     return out
 
 
@@ -53,3 +85,28 @@ def tally(rows: list[dict], key: str, values: tuple[str, ...]) -> dict[str, int]
         if v in counts:
             counts[v] += 1
     return counts
+
+
+def tally_closer(rows: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for r in rows:
+        c = r.get("closer") or ""
+        if not c or c == "tie":
+            if c == "tie":
+                counts["tie"] = counts.get("tie", 0) + 1
+            continue
+        counts[c] = counts.get(c, 0) + 1
+    return counts
+
+
+def tally_ats(rows: list[dict]) -> dict[str, dict[str, int]]:
+    """Per-label ATS totals across games."""
+    out: dict[str, dict[str, int]] = {}
+    for r in rows:
+        for label, result in (r.get("ats") or {}).items():
+            bucket = out.setdefault(
+                label, {"cover": 0, "loss": 0, "push": 0, "no_bet": 0}
+            )
+            if result in bucket:
+                bucket[result] += 1
+    return out

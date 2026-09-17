@@ -1,19 +1,31 @@
 {% extends "base.html" %}
 {% block body %}
-<p class="muted">CSV or Excel. Same columns: away_team, home_team, spread. Writes a file under data/ and upserts SQLite. Commit the file yourself.</p>
+<p class="muted">CSV or Excel (<code>away_team, home_team, spread</code>). Inserts into the database only — duplicates (same matchup, source, identity, and spread) are skipped.</p>
 {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
 {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
 <form class="form" method="post" action="/upload" enctype="multipart/form-data">
   <label>Season
-    <input type="number" name="season" value="2026" required>
+    <input type="number" name="season" value="{{ default_season }}" required>
   </label>
   <label>Week
     <input type="number" name="week" value="1" min="1" required>
   </label>
-  <label>Kind
-    <select name="kind">
-      <option value="model">Model picks</option>
-      <option value="vegas">Vegas lines</option>
+  <label>Source
+    <select name="source" id="source" onchange="toggleMeta()">
+      <option value="vegas">Vegas</option>
+      <option value="model">Model</option>
+      <option value="user">User</option>
+    </select>
+  </label>
+  <label id="model_version_wrap" hidden>Model version
+    <input type="text" name="model_version" placeholder="preseason">
+  </label>
+  <label id="username_wrap" hidden>Username
+    <select name="username">
+      <option value="">—</option>
+      <option value="Brett">Brett</option>
+      <option value="Phillip">Phillip</option>
+      <option value="Other">Other</option>
     </select>
   </label>
   <label>File
@@ -21,4 +33,12 @@
   </label>
   <button type="submit">Upload</button>
 </form>
+<script>
+function toggleMeta() {
+  const s = document.getElementById("source").value;
+  document.getElementById("model_version_wrap").hidden = s !== "model";
+  document.getElementById("username_wrap").hidden = s !== "user";
+}
+toggleMeta();
+</script>
 {% endblock %}

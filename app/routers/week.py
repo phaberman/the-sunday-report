@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app import db, mail, odds
 from app.deps import DbConn, SEASON, is_htmx, templates
-from app.score import view_game
+from app.score import view_matchup
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ def _live_week() -> tuple[int, int]:
 
 
 def _past_week_list(conn) -> list[tuple[int, int]]:
-    stored = set(db.weeks_with_spreads(conn))
+    stored = set(db.weeks_with_vegas(conn))
     return [w for w in odds.past_weeks() if w in stored]
 
 
@@ -44,7 +44,7 @@ def _pick_past(week_list: list[tuple[int, int]], week: int | None) -> tuple[int,
 @router.get("/", response_class=HTMLResponse)
 def picks(request: Request, conn: DbConn, flash: str = "", error: str = ""):
     season, week = _live_week()
-    rows = [view_game(r) for r in db.games_for(conn, season, week)]
+    rows = [view_matchup(m) for m in db.matchups_for(conn, season, week)]
     return templates.TemplateResponse(
         request,
         "picks.html",
@@ -76,7 +76,7 @@ def refresh(conn: DbConn):
 @router.get("/export")
 def export_xlsx(conn: DbConn):
     season, week = _live_week()
-    rows = [view_game(r) for r in db.games_for(conn, season, week)]
+    rows = [view_matchup(m) for m in db.matchups_for(conn, season, week)]
     return _xlsx(rows, season, week)
 
 
@@ -85,7 +85,7 @@ def email_week(conn: DbConn):
     try:
         to = mail.recipients_from_env()
         season, week = _live_week()
-        rows = [view_game(r) for r in db.games_for(conn, season, week)]
+        rows = [view_matchup(m) for m in db.matchups_for(conn, season, week)]
         filename = f"{season}_week_{week:02d}_spreads.xlsx"
         n = mail.send_xlsx(
             to=to,
@@ -115,7 +115,7 @@ def past(request: Request, conn: DbConn, week: int | None = None):
             {
                 "season": season,
                 "week": shown,
-                "rows": [view_game(r) for r in db.games_for(conn, season, shown)],
+                "rows": [view_matchup(m) for m in db.matchups_for(conn, season, shown)],
             }
         )
     if is_htmx(request):
@@ -129,5 +129,5 @@ def export_past_xlsx(conn: DbConn, week: int | None = None):
     if not week_list:
         return RedirectResponse("/past", status_code=303)
     season, w = _pick_past(week_list, week)
-    rows = [view_game(r) for r in db.games_for(conn, season, w)]
+    rows = [view_matchup(m) for m in db.matchups_for(conn, season, w)]
     return _xlsx(rows, season, w)

@@ -1,16 +1,17 @@
-"""SQLAlchemy engine, sessions, and game queries."""
+"""SQLAlchemy engine, sessions, and queries."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.models import Base, Game, VegasSpread
+from app.models import Base, Matchup, Pick, matchup_id
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "sunday.db"
+LEGACY_TABLES = ("games", "vegas_spreads")
 
 
 def connect(path: Path | None = None) -> Session:
@@ -23,92 +24,145 @@ def connect(path: Path | None = None) -> Session:
 def init(session: Session | None = None) -> Session:
     s = session or connect()
     bind = s.get_bind()
+    for name in LEGACY_TABLES:
+        s.execute(text(f"DROP TABLE IF EXISTS {name}"))
+    s.commit()
     Base.metadata.create_all(bind)
-    cols = {row[1] for row in s.execute(text("PRAGMA table_info(games)"))}
-    if cols and "kickoff" not in cols:
-        s.execute(text("ALTER TABLE games ADD COLUMN kickoff TEXT"))
-        s.commit()
     return s
 
 
-def upsert_game(
+def upsert_matchup(
     session: Session,
     *,
     season: int,
     week: int,
     away_team: str,
     home_team: str,
-    model_margin: float | None = None,
-    vegas_margin: float | None = None,
+    kickoff: str | None = None,
     home_score: int | None = None,
     away_score: int | None = None,
-    kickoff: str | None = None,
     replace_kickoff: bool = False,
-) -> Game:
-    game = session.get(Game, (season, week, away_team, home_team))
-    if game is None:
-        game = Game(
-            season=season,
-            week=week,
-            away_team=away_team,
+) -> Matchup:
+    mid = matchup_id(season, week, home_team, away_team)
+    row = session.get(Matchup, mid)
+    if row is None:
+        row = Matchup(
+            id=mid,
+            season_year=season,
+            season_week=week,
             home_team=home_team,
-            model_margin=model_margin,
-            vegas_margin=vegas_margin,
+            away_team=away_team,
+            kickoff=kickoff,
             home_score=home_score,
             away_score=away_score,
-            kickoff=kickoff,
         )
-        session.add(game)
-        return game
-    if model_margin is not None:
-        game.model_margin = model_margin
-    if vegas_margin is not None:
-        game.vegas_margin = vegas_margin
+        session.add(row)
+        return row
     if home_score is not None:
-        game.home_score = home_score
+        row.home_score = home_score
     if away_score is not None:
-        game.away_score = away_score
-    if kickoff is not None and (replace_kickoff or game.kickoff is None):
-        game.kickoff = kickoff
-    return game
+        row.away_score = away_score
+    if kickoff is not None and (replace_kickoff or row.kickoff is None):
+        row.kickoff = kickoff
+    return row
+
+
+def pick_exists(
+    session: Session,
+    *,
+    matchup_id: str,
+    source: str,
+    spread: float,
+    username: str | None,
+    model_version: str | None,
+) -> bool:
+    q = select(Pick.id).where(
+        Pick.matchup_id == matchup_id,
+        Pick.source == source,
+        Pick.spread == spread,
+        Pick.username.is_(username) if username is None else Pick.username == username,
+        Pick.model_version.is_(model_version)
+        if model_version is None
+        else Pick.model_version == model_version,
+    )
+    return session.scalar(q) is not None
+
+
+def add_pick(
+    session: Session,
+    *,
+    matchup: Matchup,
+    spread: float,
+    source: str,
+    username: str | None = None,
+    model_version: str | None = None,
+) -> Pick | None:
+    """Insert pick unless an identical row already exists. Returns None on dup."""
+    if pick_exists(
+        session,
+        matchup_id=matchup.id,
+        source=source,
+        spread=spread,
+        username=username,
+        model_version=model_version,
+    ):
+        return None
+    pick = Pick(
+        matchup_id=matchup.id,
+        spread=spread,
+        source=source,
+        username=username,
+        model_version=model_version,
+    )
+    session.add(pick)
+    return pick
 
 
 def weeks(session: Session) -> list[tuple[int, int]]:
     rows = session.execute(
-        select(Game.season, Game.week).distinct().order_by(Game.season, Game.week)
-    ).all()
-    return [(r.season, r.week) for r in rows]
-
-
-def weeks_with_spreads(session: Session) -> list[tuple[int, int]]:
-    rows = session.execute(
-        select(Game.season, Game.week)
-        .where(Game.vegas_margin.is_not(None))
+        select(Matchup.season_year, Matchup.season_week)
         .distinct()
-        .order_by(Game.season, Game.week)
+        .order_by(Matchup.season_year, Matchup.season_week)
     ).all()
-    return [(r.season, r.week) for r in rows]
+    return [(r.season_year, r.season_week) for r in rows]
 
 
-def games_for(session: Session, season: int, week: int) -> list[Game]:
+def weeks_with_vegas(session: Session) -> list[tuple[int, int]]:
+    rows = session.execute(
+        select(Matchup.season_year, Matchup.season_week)
+        .join(Pick, Pick.matchup_id == Matchup.id)
+        .where(Pick.source == "vegas")
+        .distinct()
+        .order_by(Matchup.season_year, Matchup.season_week)
+    ).all()
+    return [(r.season_year, r.season_week) for r in rows]
+
+
+def matchups_for(session: Session, season: int, week: int) -> list[Matchup]:
     return list(
         session.scalars(
-            select(Game)
-            .where(Game.season == season, Game.week == week)
-            .order_by(Game.kickoff.is_(None), Game.kickoff, Game.away_team, Game.home_team)
+            select(Matchup)
+            .where(Matchup.season_year == season, Matchup.season_week == week)
+            .options(selectinload(Matchup.picks))
+            .order_by(
+                Matchup.kickoff.is_(None),
+                Matchup.kickoff,
+                Matchup.away_team,
+                Matchup.home_team,
+            )
         ).all()
     )
 
 
-def all_games(session: Session) -> list[Game]:
+def all_matchups(session: Session) -> list[Matchup]:
     return list(
-        session.scalars(select(Game).order_by(Game.season, Game.week, Game.away_team)).all()
+        session.scalars(
+            select(Matchup)
+            .options(selectinload(Matchup.picks))
+            .order_by(Matchup.season_year, Matchup.season_week, Matchup.away_team)
+        ).all()
     )
 
 
-def count_games(session: Session) -> int:
-    return int(session.scalar(select(func.count()).select_from(Game)) or 0)
-
-
-def vegas_spreads_for(session: Session) -> list[VegasSpread]:
-    return list(session.scalars(select(VegasSpread).order_by(VegasSpread.id)).all())
+def count_matchups(session: Session) -> int:
+    return int(session.scalar(select(func.count()).select_from(Matchup)) or 0)

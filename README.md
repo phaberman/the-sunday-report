@@ -19,19 +19,19 @@ Open http://127.0.0.1:8000
 Layout:
 
 - `app/` — FastAPI app (`main.py`, `routers/`, Jinja templates, static)
-- `data/` — SQLite file (gitignored), schedule, pick CSVs
+- `data/` — SQLite file (gitignored), schedule, optional pick CSVs for re-upload
 - `scripts/` — one-shot fetches, not the web process
 
-First launch creates `data/sunday.db` and loads the 2026 schedule. Week 1 model seed still looks for `data/picks/week_01.csv` if that file exists.
+First launch creates `data/sunday.db`, loads the schedule into `matchups`, and creates empty `picks`. Legacy `games` / `vegas_spreads` tables are dropped on startup.
+
+## Data model
+
+- **matchups** — one row per game (`id` = `2026_02_sea_ne`, kickoff, scores)
+- **picks** — opinions linked by `matchup_id`: numeric home-margin `spread`, `source` (`vegas` | `user` | `model`), optional `username` / `model_version`, `created_at`
 
 ## Upload
 
-`/upload` accepts CSV or Excel (`away_team, home_team, spread`).
-
-- **Model picks** → upsert `model_margin`, save `data/picks/week_NN.csv`
-- **Vegas lines** → upsert `vegas_margin`, save `data/vegas/week_NN.xlsx`
-
-Commit those files yourself. The database is gitignored.
+`/upload` accepts CSV or Excel (`away_team, home_team, spread`). Rows go straight into SQLite (no file copy). Exact duplicates are skipped.
 
 ## Tests
 

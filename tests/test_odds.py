@@ -1,5 +1,4 @@
 from io import BytesIO
-
 from datetime import date
 
 from app import db
@@ -13,7 +12,7 @@ from app.odds import (
     team_code,
     week_row,
 )
-from app.score import view_game
+from app.score import view_matchup
 
 
 def _sched():
@@ -82,7 +81,7 @@ def test_current_week_skips_finished_and_future():
 
 
 def test_apply_dk_and_export(tmp_path):
-    conn = db.init(db.connect(tmp_path / "t.db"))
+    session = db.init(db.connect(tmp_path / "t.db"))
     games = [
         {
             "commence_time": "2026-09-18T00:15:00Z",
@@ -104,22 +103,22 @@ def test_apply_dk_and_export(tmp_path):
             ],
         }
     ]
-    n = apply_dk_games(conn, games, schedule=_sched(), only=(2026, 2))
+    n = apply_dk_games(session, games, schedule=_sched(), only=(2026, 2))
     assert n == 1
-    row = next(r for r in db.games_for(conn, 2026, 2) if r.home_team == "BUF")
-    assert row.vegas_margin == 3.0
-    assert row.kickoff == "2026-09-18T00:15:00Z"
-    w2 = db.games_for(conn, 2026, 2)
-    assert w2[0].home_team == "BUF"
-    snaps = db.vegas_spreads_for(conn)
-    assert len(snaps) == 1
-    assert snaps[0].home_team == "BUF"
-    assert snaps[0].away_team == "DET"
-    assert snaps[0].spread == "BUF -3"
-    assert snaps[0].kickoff == "2026-09-18T00:15:00Z"
-    assert snaps[0].created_at is not None
-    xlsx = export_week_xlsx([view_game(row)])
-    assert xlsx[:2] == b"PK"  # zip/xlsx
+    m = next(r for r in db.matchups_for(session, 2026, 2) if r.home_team == "BUF")
+    assert m.id == "2026_02_buf_det"
+    assert m.kickoff == "2026-09-18T00:15:00Z"
+    vegas = [p for p in m.picks if p.source == "vegas"]
+    assert len(vegas) == 1
+    assert vegas[0].spread == 3.0
+
+    n2 = apply_dk_games(session, games, schedule=_sched(), only=(2026, 2))
+    assert n2 == 0  # exact dup skipped
+
+    view = view_matchup(m)
+    assert view["index"] == "2026_02_buf_det"
+    xlsx = export_week_xlsx([view])
+    assert xlsx[:2] == b"PK"
     from openpyxl import load_workbook
 
     wb = load_workbook(BytesIO(xlsx))
@@ -132,7 +131,7 @@ def test_apply_dk_and_export(tmp_path):
         "Away Team",
         "Spread",
     ]
-    assert ws["A2"].value == "2026_02_det_buf"
+    assert ws["A2"].value == "2026_02_buf_det"
     assert ws["B2"].value == "2026-09-18 08:15"
     assert ws["C2"].value == "DET @ BUF"
     assert ws["D2"].value == "BUF"

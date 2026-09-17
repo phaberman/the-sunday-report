@@ -14,7 +14,7 @@ from app.routers import scores, upload, week
 async def lifespan(app: FastAPI):
     conn = db.init()
     ingest.ensure_schedule(conn)
-    if db.count_games(conn) == 0:
+    if db.count_matchups(conn) == 0:
         ingest.seed_week01(conn)
     conn.close()
     yield

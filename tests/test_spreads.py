@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app import db, ingest
+from app.models import matchup_id
 from app.spreads import ats, closer, explain_spread, format_spread, to_home_margin
 
 
@@ -18,37 +19,48 @@ def test_away_favorite_and_lar():
 
 
 def test_closer_and_ats():
-    assert closer(3.5, 7.0, 7.0) == "vegas"
-    assert closer(7.0, 3.5, 7.0) == "model"
-    assert closer(3.5, 3.5, 7.0) == "tie"
-    # model SEA -2.5 (home 2.5), vegas SEA -3.5 (home 3.5) → bet away
+    assert closer({"model": 3.5, "vegas": 7.0}, 7.0) == "vegas"
+    assert closer({"model": 7.0, "vegas": 3.5}, 7.0) == "model"
+    assert closer({"model": 3.5, "vegas": 3.5}, 7.0) == "tie"
+    assert closer({"model": 3.5, "vegas": 7.0, "user:Brett": 6.5}, 7.0) == "vegas"
     assert ats(2.5, 3.5, 7.0) == "loss"
     assert ats(2.5, 3.5, 2.0) == "cover"
     assert ats(3.5, 3.5, 7.0) == "no_bet"
     assert ats(2.5, 3.5, 3.5) == "push"
 
 
-def test_ingest_week01(tmp_path: Path):
-    conn = db.init(db.connect(tmp_path / "t.db"))
+def test_matchup_id():
+    assert matchup_id(2026, 2, "SEA", "NE") == "2026_02_sea_ne"
+
+
+def test_ingest_and_dups(tmp_path: Path):
+    session = db.init(db.connect(tmp_path / "t.db"))
     path = db.ROOT / "data" / "picks" / "2026_01_preseason_model.csv"
     rows = ingest.parse_upload(path.name, path.read_bytes())
-    n = ingest.ingest_rows(conn, rows, season=2026, week=1, kind="model")
-    assert n == 16
-    g = db.games_for(conn, 2026, 1)
-    sea = next(r for r in g if r.home_team == "SEA")
-    assert sea.away_team == "NE"
-    assert sea.model_margin == 3.5
-    lar = next(r for r in g if r.home_team == "LA")
-    assert lar.model_margin == 3.5
-    hou = next(r for r in g if r.home_team == "HOU")
-    assert hou.model_margin == -1.0
+    inserted, skipped = ingest.ingest_rows(
+        session, rows, season=2026, week=1, source="model", model_version="preseason"
+    )
+    assert inserted == 16
+    assert skipped == 0
+    m = next(x for x in db.matchups_for(session, 2026, 1) if x.home_team == "SEA")
+    assert m.id == "2026_01_sea_ne"
+    assert m.away_team == "NE"
+    assert any(p.spread == 3.5 and p.source == "model" for p in m.picks)
+
+    inserted2, skipped2 = ingest.ingest_rows(
+        session, rows, season=2026, week=1, source="model", model_version="preseason"
+    )
+    assert inserted2 == 0
+    assert skipped2 == 16
+
     ingest.ingest_rows(
-        conn,
+        session,
         [{"away_team": "NE", "home_team": "SEA", "spread": "SEA -7"}],
         season=2026,
         week=1,
-        kind="vegas",
+        source="vegas",
     )
-    sea = next(r for r in db.games_for(conn, 2026, 1) if r.home_team == "SEA")
-    assert sea.vegas_margin == 7.0
-    assert sea.model_margin == 3.5
+    m = next(x for x in db.matchups_for(session, 2026, 1) if x.home_team == "SEA")
+    vegas = [p for p in m.picks if p.source == "vegas"]
+    assert len(vegas) == 1
+    assert vegas[0].spread == 7.0

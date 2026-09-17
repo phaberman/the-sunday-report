@@ -1,32 +1,42 @@
 <div id="board">
   <div class="cards">
-    <div class="card"><div class="n">{{ closer.model }}</div><div class="l">Model closer</div></div>
-    <div class="card"><div class="n">{{ closer.vegas }}</div><div class="l">Vegas closer</div></div>
-    <div class="card"><div class="n">{{ closer.tie }}</div><div class="l">Ties</div></div>
+    {% for label, n in closer.items() %}
+    <div class="card"><div class="n">{{ n }}</div><div class="l">{{ label }} closer</div></div>
+    {% else %}
+    <div class="card"><div class="n">0</div><div class="l">No scored games</div></div>
+    {% endfor %}
   </div>
+  {% if ats %}
   <div class="cards">
-    <div class="card"><div class="n">{{ ats.cover }}</div><div class="l">ATS cover</div></div>
-    <div class="card"><div class="n">{{ ats.loss }}</div><div class="l">ATS loss</div></div>
-    <div class="card"><div class="n">{{ ats.push }}</div><div class="l">ATS push</div></div>
-    <div class="card"><div class="n">{{ ats.no_bet }}</div><div class="l">No bet</div></div>
+    {% for label, bucket in ats.items() %}
+    <div class="card"><div class="n">{{ bucket.cover }}-{{ bucket.loss }}</div><div class="l">{{ label }} ATS</div></div>
+    {% endfor %}
   </div>
+  {% endif %}
   <div class="table-card">
   <table>
     <thead>
-      <tr><th>Game</th><th>Model</th><th>Vegas</th><th>Actual</th><th>Closer</th><th>ATS</th></tr>
+      <tr>
+        <th>Game</th>
+        {% for lab in labels %}
+        <th>{{ lab }}</th>
+        {% endfor %}
+        <th>Actual</th>
+        <th>Closer</th>
+      </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
         <td>{{ r.game }}</td>
-        <td class="{{ 'closest' if r.closer == 'model' else '' }}">{{ r.model }}</td>
-        <td class="{{ 'closest' if r.closer == 'vegas' else '' }}">{{ r.vegas }}</td>
+        {% for lab in labels %}
+        <td class="{{ 'closest' if r.closer == lab else '' }}">{{ r.spreads.get(lab, '') }}</td>
+        {% endfor %}
         <td>{{ r.actual }}</td>
         <td>{{ r.closer }}</td>
-        <td>{{ r.ats }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="6">No games.</td></tr>
+      <tr><td colspan="{{ 3 + labels|length }}">No games.</td></tr>
       {% endfor %}
     </tbody>
   </table>

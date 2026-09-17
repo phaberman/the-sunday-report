@@ -1,4 +1,4 @@
-"""DraftKings spread pull → games.vegas_margin."""
+"""DraftKings spread pull → matchups + vegas picks."""
 
 from __future__ import annotations
 
@@ -12,9 +12,8 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
-from app.db import ROOT, upsert_game
-from app.models import VegasSpread
-from app.spreads import format_spread, norm_team
+from app.db import ROOT, add_pick, upsert_matchup
+from app.spreads import norm_team
 
 API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
 SCHEDULE_PATH = ROOT / "data" / "schedules" / "2026_schedule.csv"
@@ -215,9 +214,9 @@ def apply_dk_games(
     only: tuple[int, int] | None = None,
     pulled_at: datetime | None = None,
 ) -> int:
-    """Upsert vegas_margin from DK home points. Also appends vegas_spreads. Returns games updated."""
+    """Upsert matchups + append vegas picks (dup-checked). Returns games updated."""
+    del pulled_at  # kept for call-site compat; Pick.created_at defaults to now
     sched = schedule if schedule is not None else load_schedule()
-    created_at = pulled_at or datetime.now(timezone.utc)
     n = 0
     for game in games:
         point = dk_home_point(game)
@@ -232,26 +231,23 @@ def apply_dk_games(
             continue
         margin = -point
         kickoff = game.get("commence_time") or None
-        upsert_game(
+        matchup = upsert_matchup(
             session,
             season=hit["season"],
             week=hit["week"],
             away_team=away,
             home_team=home,
-            vegas_margin=margin,
             kickoff=kickoff,
             replace_kickoff=True,
         )
-        session.add(
-            VegasSpread(
-                kickoff=kickoff,
-                home_team=home,
-                away_team=away,
-                spread=format_spread(away, home, margin),
-                created_at=created_at,
-            )
+        pick = add_pick(
+            session,
+            matchup=matchup,
+            spread=margin,
+            source="vegas",
         )
-        n += 1
+        if pick is not None:
+            n += 1
     session.commit()
     return n
 
@@ -262,13 +258,12 @@ def refresh_spreads(session) -> dict[str, str | int]:
     if not api_key:
         raise RuntimeError("Missing ODDS_API_KEY")
     games, headers = fetch_dk(api_key)
-    pulled_at = datetime.now(timezone.utc)
-    n = apply_dk_games(session, games, only=current_week(), pulled_at=pulled_at)
+    n = apply_dk_games(session, games, only=current_week())
     return {
         "n": n,
         "remaining": headers.get("x-requests-remaining", "?"),
         "used": headers.get("x-requests-used", "?"),
-        "pulled_at": pulled_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "pulled_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -14,7 +15,7 @@ from app import db
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
-SEASON = 2026
+SEASON = date.today().year
 
 
 def get_db() -> Generator[Session, None, None]:

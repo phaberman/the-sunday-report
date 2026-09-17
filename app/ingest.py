@@ -1,4 +1,4 @@
-"""Load CSV/Excel into sqlite and write a copy under data/."""
+"""Load CSV/Excel into picks (+ ensure matchups)."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import csv
 import io
 from pathlib import Path
 
-from app.db import ROOT, upsert_game
+from app.db import ROOT, add_pick, upsert_matchup
 from app.spreads import norm_team, to_home_margin
 
 PICKS_DIR = ROOT / "data" / "picks"
-VEGAS_DIR = ROOT / "data" / "vegas"
+SOURCES = frozenset({"vegas", "user", "model"})
 
 
 def _rows_from_csv(text: str) -> list[dict]:
@@ -18,7 +18,7 @@ def _rows_from_csv(text: str) -> list[dict]:
     reader = csv.DictReader(f)
     rows = []
     for raw in reader:
-        row = { (k or "").strip(): (v or "").strip() for k, v in raw.items() if k and k.strip() }
+        row = {(k or "").strip(): (v or "").strip() for k, v in raw.items() if k and k.strip()}
         if any(row.values()):
             rows.append(row)
     return rows
@@ -57,55 +57,80 @@ def _spread_text(row: dict) -> str:
     raise ValueError(f"no spread column in {list(row)}")
 
 
-def ingest_rows(conn, rows: list[dict], *, season: int, week: int, kind: str) -> int:
-    if kind not in ("model", "vegas"):
-        raise ValueError("kind must be model or vegas")
-    n = 0
+def _validate_meta(source: str, username: str | None, model_version: str | None) -> None:
+    if source not in SOURCES:
+        raise ValueError(f"source must be one of {sorted(SOURCES)}")
+    if source == "user" and not username:
+        raise ValueError("username required when source=user")
+    if source == "model" and not model_version:
+        raise ValueError("model_version required when source=model")
+    if source == "vegas" and (username or model_version):
+        raise ValueError("vegas picks cannot have username or model_version")
+
+
+def ingest_rows(
+    session,
+    rows: list[dict],
+    *,
+    season: int,
+    week: int,
+    source: str,
+    username: str | None = None,
+    model_version: str | None = None,
+) -> tuple[int, int]:
+    """Insert picks. Returns (inserted, skipped_dups)."""
+    username = (username or "").strip() or None
+    model_version = (model_version or "").strip() or None
+    _validate_meta(source, username, model_version)
+    inserted = skipped = 0
     for row in rows:
         away = norm_team(row.get("away_team") or row.get("away") or "")
         home = norm_team(row.get("home_team") or row.get("home") or "")
         if not away or not home:
             raise ValueError(f"missing teams in {row}")
         margin = to_home_margin(away, home, _spread_text(row))
-        kw = {"model_margin": margin} if kind == "model" else {"vegas_margin": margin}
-        upsert_game(conn, season=season, week=week, away_team=away, home_team=home, **kw)
-        n += 1
-    conn.commit()
-    return n
+        matchup = upsert_matchup(
+            session, season=season, week=week, away_team=away, home_team=home
+        )
+        pick = add_pick(
+            session,
+            matchup=matchup,
+            spread=margin,
+            source=source,
+            username=username,
+            model_version=model_version,
+        )
+        if pick is None:
+            skipped += 1
+        else:
+            inserted += 1
+    session.commit()
+    return inserted, skipped
 
 
-def save_upload(kind: str, week: int, filename: str, data: bytes) -> Path:
-    dest_dir = PICKS_DIR if kind == "model" else VEGAS_DIR
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    suffix = Path(filename).suffix.lower() or ".csv"
-    if suffix not in {".csv", ".xlsx", ".xls"}:
-        suffix = ".csv"
-    path = dest_dir / f"week_{week:02d}{suffix}"
-    path.write_bytes(data)
-    return path
-
-
-def seed_week01(conn) -> int:
+def seed_week01(session) -> tuple[int, int]:
     path = PICKS_DIR / "week_01.csv"
     if not path.is_file():
-        return 0
+        return 0, 0
     rows = parse_upload(path.name, path.read_bytes())
-    return ingest_rows(conn, rows, season=2026, week=1, kind="model")
+    return ingest_rows(
+        session, rows, season=2026, week=1, source="model", model_version="preseason"
+    )
 
 
-def ensure_schedule(conn, path: Path | None = None) -> int:
-    """Insert 2026 REG matchups if missing. Null margins stay null (COALESCE)."""
+def ensure_schedule(session, path: Path | None = None) -> int:
+    """Insert 2026 REG matchups if missing."""
     from app.odds import load_schedule, schedule_kickoff
 
     rows = load_schedule(path)
     for row in rows:
-        upsert_game(
-            conn,
+        upsert_matchup(
+            session,
             season=row["season"],
             week=row["week"],
             away_team=row["away_team"],
             home_team=row["home_team"],
             kickoff=schedule_kickoff(row["gameday"], row.get("gametime") or ""),
         )
-    conn.commit()
+    session.commit()
     return len(rows)

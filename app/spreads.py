@@ -81,21 +81,24 @@ def explain_spread(away: str, home: str, margin: float | None) -> str:
     return f"{fav} is favored by {_trim_num(pts)} {word}."
 
 
-def closer(model: float, vegas: float, actual: float) -> str:
-    me, ve = abs(model - actual), abs(vegas - actual)
-    if me < ve:
-        return "model"
-    if ve < me:
-        return "vegas"
+def closer(margins: dict[str, float], actual: float) -> str:
+    """Label of the spread closest to actual. 'tie' if two or more share the min error."""
+    if not margins:
+        return ""
+    errors = {label: abs(m - actual) for label, m in margins.items()}
+    best = min(errors.values())
+    winners = [label for label, e in errors.items() if abs(e - best) < 1e-9]
+    if len(winners) == 1:
+        return winners[0]
     return "tie"
 
 
-def ats(model: float, vegas: float, actual: float) -> str:
-    """Bet model's side of the Vegas line. Same line = no_bet."""
-    if abs(model - vegas) < 1e-9:
+def ats(pick: float, vegas: float, actual: float) -> str:
+    """Bet pick's side of the Vegas line. Same line = no_bet."""
+    if abs(pick - vegas) < 1e-9:
         return "no_bet"
     if abs(actual - vegas) < 1e-9:
         return "push"
-    bet_home = model > vegas
+    bet_home = pick > vegas
     covered = actual > vegas if bet_home else actual < vegas
     return "cover" if covered else "loss"
