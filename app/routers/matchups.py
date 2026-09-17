@@ -8,36 +8,19 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app import db, odds
-from app.deps import DbConn, SEASON, is_htmx, templates
-from app.models import Matchup
-from app.odds import format_kickoff
+from app.deps import (
+    DbConn,
+    MODEL_VERSION,
+    SEASON,
+    USERNAME,
+    VEGAS_BOOKMAKER,
+    is_htmx,
+    templates,
+)
+from app.score import matchups_board, pick_counts
 from app.schedule import refresh_schedule
 
 router = APIRouter()
-
-
-def _row(m: Matchup) -> dict:
-    played = m.away_score is not None and m.home_score is not None
-    away_pts = m.away_score if played else None
-    home_pts = m.home_score if played else None
-    diff = (home_pts - away_pts) if played else None
-    if not played:
-        winner = None
-    elif away_pts == home_pts:
-        winner = "TIE"
-    elif away_pts > home_pts:
-        winner = m.away_team
-    else:
-        winner = m.home_team
-    return {
-        "away_team": m.away_team,
-        "home_team": m.home_team,
-        "kickoff": format_kickoff(m.kickoff),
-        "away_points": away_pts,
-        "home_points": home_pts,
-        "diff": diff,
-        "winner": winner,
-    }
 
 
 def _pick_week(conn, week: int | None) -> tuple[int, int]:
@@ -55,22 +38,27 @@ def _pick_week(conn, week: int | None) -> tuple[int, int]:
     return live
 
 
-def _rows(conn, season: int, week: int) -> list[dict]:
-    return [_row(m) for m in db.matchups_for(conn, season, week)]
+def _board(conn, season: int, week: int) -> dict:
+    return matchups_board(
+        db.matchups_for(conn, season, week),
+        bookmaker=VEGAS_BOOKMAKER,
+        model_version=MODEL_VERSION,
+        username=USERNAME,
+    )
 
 
 def _ctx(conn, *, week: int | None, flash: str = "", error: str = ""):
     season, shown = _pick_week(conn, week)
-    sched = odds.load_schedule(conn)
+    board = _board(conn, season, shown)
     return {
         "season": season,
         "week": shown,
         "week_list": db.weeks(conn) or [(season, shown)],
-        "past_weeks": set(odds.past_weeks(sched)),
-        "rows": _rows(conn, season, shown),
+        "past_weeks": set(odds.past_weeks(odds.load_schedule(conn))),
         "flash": flash,
         "error": error,
         "nav": "matchups",
+        **board,
     }
 
 
@@ -92,8 +80,15 @@ def matchups(
 def refresh(conn: DbConn, week: int | None = Form(None)):
     try:
         info = refresh_schedule(conn, SEASON)
-        msg = f"Updated {info['n']} matchups ({info['with_scores']} with scores)."
         w = week if week is not None else _pick_week(conn, None)[1]
+        season, shown = _pick_week(conn, w)
+        counts = pick_counts(_board(conn, season, shown)["rows"])
+        msg = (
+            f"Updated {info['n']} matchups ({info['with_scores']} with scores). "
+            f"Picks: Vegas {counts['vegas']}/{counts['total']} · "
+            f"Model {counts['model']}/{counts['total']} · "
+            f"{USERNAME} {counts['user']}/{counts['total']}"
+        )
         return RedirectResponse(
             f"/matchups?flash={quote(msg)}&week={w}",
             status_code=303,
@@ -109,10 +104,10 @@ def refresh(conn: DbConn, week: int | None = Form(None)):
 @router.get("/matchups/export")
 def export_xlsx(conn: DbConn, week: int | None = None):
     season, shown = _pick_week(conn, week)
-    rows = _rows(conn, season, shown)
+    board = _board(conn, season, shown)
     name = f"{season}_week_{shown:02d}_matchups.xlsx"
     return Response(
-        content=odds.export_matchups_xlsx(rows),
+        content=odds.export_matchups_xlsx(board["rows"], user_col=board["user_col"]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )

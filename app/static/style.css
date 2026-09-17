@@ -46,7 +46,7 @@ h1 {
 }
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   min-width: 240px;
   padding: 3px;
   background: rgba(255, 255, 255, 0.1);

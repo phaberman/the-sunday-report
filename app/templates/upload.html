@@ -80,11 +80,17 @@
       <div class="chip-row" role="radiogroup" aria-label="Username">
         {% for u in usernames %}
         <label class="chip chip-lg">
-          <input type="radio" name="username" value="{{ u }}" {% if username == u %}checked{% endif %}>
+          <input type="radio" name="username_choice" value="{{ u }}" {% if username == u %}checked{% endif %}>
           <span>{{ u }}</span>
         </label>
         {% endfor %}
+        <label class="chip chip-lg">
+          <input type="radio" name="username_choice" value="__other__" {% if username and username not in usernames %}checked{% endif %}>
+          <span>Other…</span>
+        </label>
       </div>
+      <input type="hidden" name="username" id="username" value="{{ username }}">
+      <input type="text" id="username_other" class="meta-other" placeholder="Name" {% if username and username not in usernames %}value="{{ username }}"{% else %}hidden{% endif %}>
     </div>
   </div>
 
@@ -152,6 +158,8 @@
   const bookOther = document.getElementById("bookmaker_other");
   const modelHidden = document.getElementById("model_version");
   const modelOther = document.getElementById("model_version_other");
+  const userHidden = document.getElementById("username");
+  const userOther = document.getElementById("username_other");
   const file = document.getElementById("file");
   const drop = document.getElementById("drop");
   const dropTitle = document.getElementById("drop-title");
@@ -206,6 +214,23 @@
     }
   }
 
+  function syncUsername() {
+    const choice = form.querySelector('input[name="username_choice"]:checked');
+    if (!choice) {
+      userHidden.value = "";
+      userOther.hidden = true;
+      return;
+    }
+    if (choice.value === "__other__") {
+      userOther.hidden = false;
+      userHidden.value = userOther.value.trim();
+    } else {
+      userOther.hidden = true;
+      userOther.value = "";
+      userHidden.value = choice.value;
+    }
+  }
+
   function syncMeta() {
     const s = source();
     vegasMeta.hidden = s !== "vegas";
@@ -232,7 +257,12 @@
       syncModelVersion();
     }
     if (s !== "user") {
-      form.querySelectorAll('input[name="username"]').forEach((r) => { r.checked = false; });
+      userHidden.value = "";
+      userOther.hidden = true;
+      userOther.value = "";
+      form.querySelectorAll('input[name="username_choice"]').forEach((r) => { r.checked = false; });
+    } else {
+      syncUsername();
     }
   }
 
@@ -250,7 +280,7 @@
       season: document.getElementById("season").value,
       source: source(),
       bookmaker: bookHidden.value || "",
-      username: (form.querySelector('input[name="username"]:checked') || {}).value || "",
+      username: userHidden.value || "",
       model_version: modelHidden.value || "",
     });
     return "/upload/entries?" + params.toString();
@@ -283,8 +313,8 @@
   form.querySelectorAll('input[name="model_version_choice"]').forEach((el) => {
     el.addEventListener("change", () => { syncModelVersion(); reloadEntries(); });
   });
-  form.querySelectorAll('input[name="username"]').forEach((el) => {
-    el.addEventListener("change", reloadEntries);
+  form.querySelectorAll('input[name="username_choice"]').forEach((el) => {
+    el.addEventListener("change", () => { syncUsername(); reloadEntries(); });
   });
   form.querySelectorAll('input[name="mode_choice"]').forEach((el) => {
     el.addEventListener("change", syncMode);
@@ -293,6 +323,8 @@
   bookOther.addEventListener("input", () => { bookHidden.value = bookOther.value.trim(); });
   modelOther.addEventListener("change", () => { modelHidden.value = modelOther.value.trim(); reloadEntries(); });
   modelOther.addEventListener("input", () => { modelHidden.value = modelOther.value.trim(); });
+  userOther.addEventListener("change", () => { userHidden.value = userOther.value.trim(); reloadEntries(); });
+  userOther.addEventListener("input", () => { userHidden.value = userOther.value.trim(); });
 
   function showFile(f) {
     if (!f) return;
@@ -321,6 +353,7 @@
     const s = source();
     if (s === "vegas") syncBookmaker();
     if (s === "model") syncModelVersion();
+    if (s === "user") syncUsername();
     syncMode();
     if (s === "vegas" && !bookHidden.value) {
       e.preventDefault();
@@ -332,7 +365,7 @@
       alert("Pick a model version.");
       return;
     }
-    if (s === "user" && !form.querySelector('input[name="username"]:checked')) {
+    if (s === "user" && !userHidden.value) {
       e.preventDefault();
       alert("Pick who submitted the picks.");
       return;
@@ -354,6 +387,7 @@
   syncMeta();
   syncBookmaker();
   syncModelVersion();
+  syncUsername();
   syncMode();
 })();
 </script>

@@ -3,33 +3,25 @@
   <table>
     <thead>
       <tr>
-        <th>Away</th>
-        <th>Home</th>
+        <th>Matchup</th>
         <th>Kickoff</th>
-        <th>Away Points</th>
-        <th>Home Points</th>
-        <th>Diff</th>
-        <th>Winner</th>
+        <th>Away Pts</th>
+        <th>Home Pts</th>
+        <th>Vegas</th>
+        <th>Model</th>
+        <th>{{ user_col }}</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td>{{ r.away_team }}</td>
-        <td>{{ r.home_team }}</td>
+        <td>{{ r.matchup }}</td>
         <td>{{ r.kickoff }}</td>
         <td>{{ r.away_points if r.away_points is not none else "—" }}</td>
         <td>{{ r.home_points if r.home_points is not none else "—" }}</td>
-        <td>{% if r.diff is not none %}{{ "{:+d}".format(r.diff) }}{% else %}—{% endif %}</td>
-        <td>
-          {% if r.winner and r.winner != "TIE" %}
-          <span class="badge">{{ r.winner }}</span>
-          {% elif r.winner == "TIE" %}
-          <span class="badge badge-muted">TIE</span>
-          {% else %}
-          —
-          {% endif %}
-        </td>
+        <td class="spread">{{ r.vegas or "—" }}</td>
+        <td class="spread">{{ r.model or "—" }}</td>
+        <td class="spread">{{ r.user or "—" }}</td>
       </tr>
       {% else %}
       <tr><td colspan="7">No matchups for this week.</td></tr>

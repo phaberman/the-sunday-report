@@ -41,7 +41,7 @@ def _upload_ctx(
         "default_season": season,
         "week": week,
         "weeks": list(range(1, 19)),
-        "usernames": ["Brett", "Phillip", "Other"],
+        "usernames": ["Brett", "Phillip"],
         "model_versions": ["preseason", "v1"],
         "bookmakers": ["DraftKings", "FanDuel", "BetMGM", "Caesars"],
         "sample_rows": SAMPLE_ROWS,

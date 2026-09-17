@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app import db, mail, odds
 from app.deps import DbConn, SEASON, is_htmx, templates
 from app.routers.matchups import _pick_week
-from app.score import picks_board, view_matchup
+from app.score import view_matchup
 
 router = APIRouter()
 
@@ -47,29 +47,10 @@ def home():
     return RedirectResponse("/matchups", status_code=303)
 
 
-@router.get("/picks", response_class=HTMLResponse)
-def picks(
-    request: Request,
-    conn: DbConn,
-    week: int | None = None,
-    flash: str = "",
-    error: str = "",
-):
-    season, shown = _pick_week(conn, week)
-    board = picks_board(db.matchups_for(conn, season, shown))
-    ctx = {
-        "season": season,
-        "week": shown,
-        "week_list": db.weeks(conn) or [(season, shown)],
-        "past_weeks": set(odds.past_weeks(odds.load_schedule(conn))),
-        "flash": flash,
-        "error": error,
-        "nav": "picks",
-        **board,
-    }
-    if is_htmx(request):
-        return templates.TemplateResponse(request, "partials/picks_board.html", ctx)
-    return templates.TemplateResponse(request, "picks.html", ctx)
+@router.get("/picks")
+def picks(week: int | None = None):
+    url = "/matchups" if week is None else f"/matchups?week={week}"
+    return RedirectResponse(url, status_code=303)
 
 
 @router.post("/refresh")

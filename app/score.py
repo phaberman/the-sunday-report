@@ -62,41 +62,53 @@ def _latest_by_source(picks: list[Pick]) -> dict[str, dict[str, Pick]]:
     return out
 
 
-def picks_board(matchups: list[Matchup]) -> dict:
-    """Rows and dynamic Vegas / Model / User columns for the picks table."""
-    vegas_cols: set[str] = set()
-    model_cols: set[str] = set()
-    user_cols: set[str] = set()
-    rows: list[dict] = []
+def _fixed_vegas_pick(by_source: dict[str, dict[str, Pick]], bookmaker: str) -> Pick | None:
+    pick = by_source["vegas"].get(bookmaker)
+    if pick is not None:
+        return pick
+    by_label = {pick_label(p): p for p in by_source["vegas"].values()}
+    return primary_vegas(by_label)
 
+
+def _spread_cell(m: Matchup, pick: Pick | None) -> str | None:
+    if pick is None:
+        return None
+    return format_spread(m.away_team, m.home_team, pick.spread)
+
+
+def matchups_board(
+    matchups: list[Matchup],
+    *,
+    bookmaker: str,
+    model_version: str,
+    username: str,
+) -> dict:
+    """Flat matchup rows with fixed Vegas / Model / User prediction columns."""
+    rows: list[dict] = []
     for m in matchups:
         by_source = _latest_by_source(list(m.picks))
-        vegas: dict[str, str] = {}
-        model: dict[str, str] = {}
-        user: dict[str, str] = {}
-        for name, p in by_source["vegas"].items():
-            vegas_cols.add(name)
-            vegas[name] = format_spread(m.away_team, m.home_team, p.spread)
-        for name, p in by_source["model"].items():
-            model_cols.add(name)
-            model[name] = format_spread(m.away_team, m.home_team, p.spread)
-        for name, p in by_source["user"].items():
-            user_cols.add(name)
-            user[name] = format_spread(m.away_team, m.home_team, p.spread)
+        played = m.away_score is not None and m.home_score is not None
         rows.append(
             {
                 "matchup": f"{m.away_team} @ {m.home_team}",
-                "vegas": vegas,
-                "model": model,
-                "user": user,
+                "kickoff": format_kickoff(m.kickoff),
+                "away_points": m.away_score if played else None,
+                "home_points": m.home_score if played else None,
+                "vegas": _spread_cell(m, _fixed_vegas_pick(by_source, bookmaker)),
+                "model": _spread_cell(m, by_source["model"].get(model_version)),
+                "user": _spread_cell(m, by_source["user"].get(username)),
             }
         )
+    return {"rows": rows, "user_col": username}
 
+
+def pick_counts(rows: list[dict]) -> dict[str, int]:
+    total = len(rows)
     return {
-        "vegas_cols": sorted(vegas_cols),
-        "model_cols": sorted(model_cols),
-        "user_cols": sorted(user_cols),
-        "rows": rows,
+        "vegas": sum(1 for r in rows if r.get("vegas")),
+        "model": sum(1 for r in rows if r.get("model")),
+        "user": sum(1 for r in rows if r.get("user")),
+        "total": total,
     }
 
 

@@ -16,6 +16,9 @@ from app import db
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 SEASON = date.today().year
+VEGAS_BOOKMAKER = "DraftKings"
+MODEL_VERSION = "preseason"
+USERNAME = "Brett"
 
 
 def get_db() -> Generator[Session, None, None]:

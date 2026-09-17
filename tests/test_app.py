@@ -13,16 +13,21 @@ def test_html_pages_render():
         r = client.get("/", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/matchups"
-        for path in ("/matchups", "/picks", "/upload"):
+        for path in ("/matchups", "/upload"):
             r = client.get(path)
             assert r.status_code == 200, path
             assert "The Sunday Report" in r.text
 
+        r = client.get("/picks", follow_redirects=False)
+        assert r.status_code == 303
+        assert r.headers["location"] == "/matchups"
 
-def test_picks_page_and_board(tmp_path: Path):
+
+def test_matchups_board_with_picks(tmp_path: Path):
+    from app.deps import MODEL_VERSION, USERNAME, VEGAS_BOOKMAKER
     from app.models import Pick
     from app.schedule import apply_schedule_rows
-    from app.score import picks_board
+    from app.score import matchups_board
 
     session = db.init(db.connect(tmp_path / "p.db"))
     apply_schedule_rows(
@@ -52,17 +57,9 @@ def test_picks_page_and_board(tmp_path: Path):
     session.add(
         Pick(
             matchup_id=m.id,
-            spread=4.0,
-            source="vegas",
-            bookmaker="MGM",
-        )
-    )
-    session.add(
-        Pick(
-            matchup_id=m.id,
             spread=3.0,
             source="model",
-            model_version="v1",
+            model_version=MODEL_VERSION,
         )
     )
     session.add(
@@ -70,27 +67,33 @@ def test_picks_page_and_board(tmp_path: Path):
             matchup_id=m.id,
             spread=2.5,
             source="user",
-            username="phil",
+            username=USERNAME,
         )
     )
     session.commit()
 
-    board = picks_board(db.matchups_for(session, 2026, 1))
-    assert board["vegas_cols"] == ["DraftKings", "MGM"]
-    assert board["model_cols"] == ["v1"]
-    assert board["user_cols"] == ["phil"]
+    board = matchups_board(
+        db.matchups_for(session, 2026, 1),
+        bookmaker=VEGAS_BOOKMAKER,
+        model_version=MODEL_VERSION,
+        username=USERNAME,
+    )
+    assert board["user_col"] == USERNAME
     row = board["rows"][0]
-    assert row["vegas"]["DraftKings"]
-    assert row["model"]["v1"]
-    assert row["user"]["phil"]
+    assert row["matchup"] == "NE @ SEA"
+    assert row["vegas"] == "SEA -3.5"
+    assert row["model"] == "SEA -3"
+    assert row["user"] == "SEA -2.5"
 
     with TestClient(app) as client:
-        r = client.get("/picks")
+        r = client.get("/matchups")
         assert r.status_code == 200
         assert "Matchup" in r.text
-        assert 'class="picks-table"' in r.text
+        assert "Vegas" in r.text
+        assert USERNAME in r.text
+        assert "Diff" not in r.text
 
-        r = client.get("/picks", headers={"HX-Request": "true"})
+        r = client.get("/matchups", headers={"HX-Request": "true"})
         assert r.status_code == 200
         assert 'id="board"' in r.text
         assert "<html" not in r.text.lower()
@@ -100,7 +103,7 @@ def test_matchups_page_and_export():
     with TestClient(app) as client:
         r = client.get("/matchups")
         assert r.status_code == 200
-        assert "Away" in r.text
+        assert "Matchup" in r.text
         assert "Export" in r.text
         assert "Refresh" in r.text
 
@@ -145,16 +148,17 @@ def test_matchups_rows(tmp_path: Path):
             },
         ],
     )
-    rows = matchups_router._rows(session, 2026, 1)
+    board = matchups_router._board(session, 2026, 1)
+    rows = board["rows"]
     assert len(rows) == 2
-    sea = next(r for r in rows if r["home_team"] == "SEA")
+    sea = next(r for r in rows if r["matchup"] == "NE @ SEA")
     assert sea["away_points"] == 10
     assert sea["home_points"] == 13
-    assert sea["diff"] == 3
-    assert sea["winner"] == "SEA"
-    chi = next(r for r in rows if r["home_team"] == "CAR")
+    assert sea["vegas"] is None
+    chi = next(r for r in rows if r["matchup"] == "CHI @ CAR")
     assert chi["away_points"] is None
-    assert chi["winner"] is None
+    assert chi["vegas"] is None
+    assert chi["model"] is None
 
 
 def test_refresh_schedule_upsert_no_dups(tmp_path: Path):
