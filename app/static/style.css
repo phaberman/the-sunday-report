@@ -246,11 +246,24 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   outline: 2px solid var(--navy-2);
   outline-offset: 2px;
 }
+.chip-past span {
+  color: var(--muted);
+  border-color: #ddd8cc;
+  background: #f0ece3;
+}
+.chip-past:hover span { border-color: #c8c2b6; }
+.chip-past input:checked + span {
+  background: var(--navy-2);
+  border-color: var(--navy-2);
+  color: #fff;
+}
 .badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  padding: 4px 0;
   border: 1px solid var(--navy);
   border-radius: 8px;
   background: var(--navy);
@@ -258,6 +271,7 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   font-weight: 650;
   color: #fff;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 .badge-muted {
   background: #fff;
@@ -274,11 +288,6 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
-}
-.matchups-toolbar-label {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
 }
 .matchups-weeks {
   flex: 1 1 auto;

@@ -18,6 +18,12 @@ def test_away_favorite_and_lar():
     assert to_home_margin("BUF", "HOU", "BUF -1") == -1.0
 
 
+def test_numeric_spread():
+    assert to_home_margin("NE", "SEA", "3.5") == 3.5
+    assert to_home_margin("CHI", "CAR", "-2.5") == -2.5
+    assert to_home_margin("NE", "SEA", "PK") == 0.0
+
+
 def test_closer_and_ats():
     assert closer({"model": 3.5, "vegas": 7.0}, 7.0) == "vegas"
     assert closer({"model": 7.0, "vegas": 3.5}, 7.0) == "model"

@@ -61,10 +61,12 @@ def _rows(conn, season: int, week: int) -> list[dict]:
 
 def _ctx(conn, *, week: int | None, flash: str = "", error: str = ""):
     season, shown = _pick_week(conn, week)
+    sched = odds.load_schedule(conn)
     return {
         "season": season,
         "week": shown,
         "week_list": db.weeks(conn) or [(season, shown)],
+        "past_weeks": set(odds.past_weeks(sched)),
         "rows": _rows(conn, season, shown),
         "flash": flash,
         "error": error,

@@ -22,6 +22,7 @@ SPREAD_RE = re.compile(
     r"^\s*([A-Z]{2,3})\s*([+-]?\d+(?:\.\d+)?)\s*$",
     re.IGNORECASE,
 )
+NUM_SPREAD_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?)\s*$")
 
 
 def norm_team(code: str) -> str:
@@ -48,6 +49,12 @@ def parse_spread_cell(text: str) -> tuple[str, float] | None:
 
 def to_home_margin(away: str, home: str, spread_text: str) -> float:
     away, home = norm_team(away), norm_team(home)
+    raw = (spread_text or "").strip()
+    if raw.upper() == "PK":
+        return 0.0
+    num = NUM_SPREAD_RE.match(raw)
+    if num:
+        return float(num.group(1))
     parsed = parse_spread_cell(spread_text)
     if parsed is None:
         return 0.0

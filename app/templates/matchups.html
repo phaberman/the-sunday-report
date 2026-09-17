@@ -6,10 +6,9 @@
 {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
 
 <div class="toolbar matchups-toolbar">
-  <span class="muted matchups-toolbar-label">Week</span>
   <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
     {% for s, w in week_list %}
-    <label class="chip">
+    <label class="chip{% if (s, w) in past_weeks %} chip-past{% endif %}">
       <input type="radio" name="week" value="{{ w }}"
         {% if w == week %}checked{% endif %}
         hx-get="/matchups"

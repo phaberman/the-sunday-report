@@ -162,6 +162,8 @@ def test_upload_page_defaults_to_enter_spreads():
         assert "Enter spreads" in r.text
         assert 'id="mode-enter"' in r.text
         assert "away_team · home_team · spread" in r.text
+        assert ">3.5<" in r.text
+        assert "SEA -3.5" not in r.text
 
 
 def test_upload_entries_empty_week():

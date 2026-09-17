@@ -14,9 +14,9 @@ from app.deps import DbConn, templates
 router = APIRouter()
 
 SAMPLE_ROWS = [
-    {"away_team": "NE", "home_team": "SEA", "spread": "SEA -3.5"},
-    {"away_team": "SF", "home_team": "LAR", "spread": "LAR -3.5"},
-    {"away_team": "CHI", "home_team": "CAR", "spread": "CHI -2.5"},
+    {"away_team": "NE", "home_team": "SEA", "spread": "3.5"},
+    {"away_team": "SF", "home_team": "LA", "spread": "3.5"},
+    {"away_team": "CHI", "home_team": "CAR", "spread": "-2.5"},
 ]
 
 
