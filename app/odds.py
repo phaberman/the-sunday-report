@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 import urllib.error
@@ -16,7 +15,6 @@ from app.db import ROOT, add_pick, upsert_matchup
 from app.spreads import norm_team
 
 API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
-SCHEDULE_PATH = ROOT / "data" / "schedules" / "2026_schedule.csv"
 DISPLAY_TZ = timezone(timedelta(hours=8))  # UTC+8; NFL week rolls Tue after MNF.
 ET = ZoneInfo("America/New_York")
 
@@ -78,26 +76,40 @@ def team_code(name: str) -> str:
     return norm_team(n)
 
 
-def load_schedule(path: Path | None = None) -> list[dict]:
-    p = path or SCHEDULE_PATH
-    if not p.is_file():
-        return []
-    rows = []
-    with p.open(newline="") as f:
-        for row in csv.DictReader(f):
-            if row.get("game_type") != "REG":
-                continue
+def load_schedule(session=None) -> list[dict]:
+    """REG matchups from SQLite (kickoff → ET gameday). Empty if DB not seeded."""
+    from sqlalchemy import select
+
+    from app import db as dbmod
+    from app.models import Matchup
+
+    close = False
+    if session is None:
+        session = dbmod.init(dbmod.connect())
+        close = True
+    try:
+        rows = []
+        for m in session.scalars(select(Matchup)).all():
+            gameday = ""
+            if m.kickoff:
+                dt = datetime.fromisoformat(m.kickoff.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                gameday = dt.astimezone(ET).strftime("%Y-%m-%d")
             rows.append(
                 {
-                    "season": int(row["season"]),
-                    "week": int(row["week"]),
-                    "gameday": row["gameday"],
-                    "gametime": row.get("gametime") or "",
-                    "away_team": norm_team(row["away_team"]),
-                    "home_team": norm_team(row["home_team"]),
+                    "season": m.season_year,
+                    "week": m.season_week,
+                    "gameday": gameday,
+                    "gametime": "",
+                    "away_team": m.away_team,
+                    "home_team": m.home_team,
                 }
             )
-    return rows
+        return rows
+    finally:
+        if close:
+            session.close()
 
 
 def _week_last_days(
@@ -106,8 +118,11 @@ def _week_last_days(
     sched = schedule if schedule is not None else load_schedule()
     last_by: dict[tuple[int, int], date] = {}
     for r in sched:
+        gameday = r.get("gameday") or ""
+        if not gameday:
+            continue
         key = (r["season"], r["week"])
-        d = datetime.strptime(r["gameday"], "%Y-%m-%d").date()
+        d = datetime.strptime(gameday, "%Y-%m-%d").date()
         prev = last_by.get(key)
         last_by[key] = d if prev is None else max(prev, d)
     return last_by
@@ -285,6 +300,28 @@ def export_week_xlsx(rows: list[dict]) -> bytes:
                 r["home_team"],
                 r["away_team"],
                 r["vegas"],
+            ]
+        )
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def export_matchups_xlsx(rows: list[dict]) -> bytes:
+    from openpyxl import Workbook
+    from io import BytesIO
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "matchups"
+    ws.append(["Away", "Home", "Kickoff", "Score"])
+    for r in rows:
+        ws.append(
+            [
+                r["away_team"],
+                r["home_team"],
+                r.get("kickoff") or "",
+                r.get("score") or "—",
             ]
         )
     buf = BytesIO()

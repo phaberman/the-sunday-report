@@ -210,3 +210,11 @@ def all_matchups(session: Session) -> list[Matchup]:
 
 def count_matchups(session: Session) -> int:
     return int(session.scalar(select(func.count()).select_from(Matchup)) or 0)
+
+
+def teams(session: Session) -> list[str]:
+    codes: set[str] = set()
+    for away, home in session.execute(select(Matchup.away_team, Matchup.home_team)):
+        codes.add(away)
+        codes.add(home)
+    return sorted(codes)

@@ -250,19 +250,16 @@ def seed_week01(session) -> tuple[int, int]:
     )
 
 
-def ensure_schedule(session, path: Path | None = None) -> int:
-    """Insert 2026 REG matchups if missing."""
-    from app.odds import load_schedule, schedule_kickoff
+def ensure_schedule(session, season: int | None = None) -> dict[str, int]:
+    """Seed matchups from nflreadpy when the table is empty. No-op if already loaded."""
+    from app import db
+    from app.deps import SEASON
+    from app.schedule import refresh_schedule
 
-    rows = load_schedule(path)
-    for row in rows:
-        upsert_matchup(
-            session,
-            season=row["season"],
-            week=row["week"],
-            away_team=row["away_team"],
-            home_team=row["home_team"],
-            kickoff=schedule_kickoff(row["gameday"], row.get("gametime") or ""),
-        )
-    session.commit()
-    return len(rows)
+    if db.count_matchups(session) > 0:
+        return {"n": 0, "with_scores": 0}
+    try:
+        return refresh_schedule(session, season or SEASON)
+    except Exception:
+        # ponytail: offline/CI without nflverse — leave empty; Refresh button retries.
+        return {"n": 0, "with_scores": 0}

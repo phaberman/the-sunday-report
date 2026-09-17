@@ -41,7 +41,12 @@ def _pick_past(week_list: list[tuple[int, int]], week: int | None) -> tuple[int,
     return season, shown
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/")
+def home():
+    return RedirectResponse("/matchups", status_code=303)
+
+
+@router.get("/picks", response_class=HTMLResponse)
 def picks(request: Request, conn: DbConn, flash: str = "", error: str = ""):
     season, week = _live_week()
     rows = [view_matchup(m) for m in db.matchups_for(conn, season, week)]

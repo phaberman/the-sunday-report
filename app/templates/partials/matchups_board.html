@@ -1,0 +1,26 @@
+<div id="board">
+  <div class="table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>Away</th>
+        <th>Home</th>
+        <th>Kickoff</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.away_team }}</td>
+        <td>{{ r.home_team }}</td>
+        <td>{{ r.kickoff }}</td>
+        <td>{{ r.score }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">No matchups for this week.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
