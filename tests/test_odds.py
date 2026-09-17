@@ -111,6 +111,7 @@ def test_apply_dk_and_export(tmp_path):
     vegas = [p for p in m.picks if p.source == "vegas"]
     assert len(vegas) == 1
     assert vegas[0].spread == 3.0
+    assert vegas[0].bookmaker == "DraftKings"
 
     n2 = apply_dk_games(session, games, schedule=_sched(), only=(2026, 2))
     assert n2 == 0  # exact dup skipped

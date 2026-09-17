@@ -1,0 +1,59 @@
+<div id="entries">
+  {% if not entry_rows %}
+  <p class="muted empty-entries">No matchups for week {{ week }}. Load the schedule first.</p>
+  {% else %}
+  <div class="table-card enter-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Matchup</th>
+          <th>Favorite</th>
+          <th>Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in entry_rows %}
+        <tr class="{% if r.locked %}row-locked{% endif %}">
+          <td>
+            {{ r.game }}
+            <input type="hidden" name="away_{{ r.id }}" value="{{ r.away_team }}">
+            <input type="hidden" name="home_{{ r.id }}" value="{{ r.home_team }}">
+          </td>
+          {% if r.locked %}
+          <td colspan="2" class="locked-cell">
+            <span class="locked-badge">Logged</span>
+            <span class="mono">{{ r.locked_spread }}</span>
+          </td>
+          {% else %}
+          <td>
+            <div class="chip-row fav-row" role="radiogroup" aria-label="Favorite {{ r.game }}">
+              <label class="chip">
+                <input type="radio" name="fav_{{ r.id }}" value="{{ r.away_team }}">
+                <span>{{ r.away_team }}</span>
+              </label>
+              <label class="chip">
+                <input type="radio" name="fav_{{ r.id }}" value="{{ r.home_team }}" checked>
+                <span>{{ r.home_team }}</span>
+              </label>
+            </div>
+          </td>
+          <td>
+            <input
+              class="pts-input"
+              type="number"
+              name="pts_{{ r.id }}"
+              min="0"
+              step="0.5"
+              placeholder="3.5"
+              inputmode="decimal"
+            >
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted enter-hint">Blank rows are skipped. Logged rows can’t be changed for this source.</p>
+  {% endif %}
+</div>

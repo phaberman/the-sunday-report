@@ -59,6 +59,7 @@ def test_ingest_and_dups(tmp_path: Path):
         season=2026,
         week=1,
         source="vegas",
+        bookmaker="DraftKings",
     )
     m = next(x for x in db.matchups_for(session, 2026, 1) if x.home_team == "SEA")
     vegas = [p for p in m.picks if p.source == "vegas"]

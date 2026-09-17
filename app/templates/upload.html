@@ -1,44 +1,361 @@
 {% extends "base.html" %}
 {% block body %}
-<p class="muted">CSV or Excel (<code>away_team, home_team, spread</code>). Inserts into the database only — duplicates (same matchup, source, identity, and spread) are skipped.</p>
+<div class="upload-page">
 {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
 {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
-<form class="form" method="post" action="/upload" enctype="multipart/form-data">
-  <label>Season
-    <input type="number" name="season" value="{{ default_season }}" required>
-  </label>
-  <label>Week
-    <input type="number" name="week" value="1" min="1" required>
-  </label>
-  <label>Source
-    <select name="source" id="source" onchange="toggleMeta()">
-      <option value="vegas">Vegas</option>
-      <option value="model">Model</option>
-      <option value="user">User</option>
-    </select>
-  </label>
-  <label id="model_version_wrap" hidden>Model version
-    <input type="text" name="model_version" placeholder="preseason">
-  </label>
-  <label id="username_wrap" hidden>Username
-    <select name="username">
-      <option value="">—</option>
-      <option value="Brett">Brett</option>
-      <option value="Phillip">Phillip</option>
-      <option value="Other">Other</option>
-    </select>
-  </label>
-  <label>File
-    <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
-  </label>
-  <button type="submit">Upload</button>
+
+<form class="upload-form" method="post" action="/upload" enctype="multipart/form-data" id="upload-form">
+  <input type="hidden" name="season" id="season" value="{{ default_season }}">
+  <input type="hidden" name="mode" id="mode" value="enter">
+
+  <div class="upload-bar">
+    <div class="upload-bar-main">
+      <span class="upload-label">Week - {{ default_season }} Season</span>
+      <div class="chip-row" role="radiogroup" aria-label="Week">
+        {% for w in weeks %}
+        <label class="chip">
+          <input type="radio" name="week" value="{{ w }}" {% if w == week %}checked{% endif %} required>
+          <span>{{ w }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-section">
+    <span class="upload-label">Source</span>
+    <div class="seg" role="radiogroup" aria-label="Source">
+      <label class="seg-opt">
+        <input type="radio" name="source" value="vegas" {% if source == "vegas" %}checked{% endif %}>
+        <span>Vegas</span>
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="source" value="model" {% if source == "model" %}checked{% endif %}>
+        <span>Model</span>
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="source" value="user" {% if source == "user" %}checked{% endif %}>
+        <span>User</span>
+      </label>
+    </div>
+
+    <div class="meta-row" id="vegas_meta" {% if source != "vegas" %}hidden{% endif %}>
+      <span class="upload-label">Book</span>
+      <div class="chip-row" role="radiogroup" aria-label="Bookmaker">
+        {% for b in bookmakers %}
+        <label class="chip chip-lg">
+          <input type="radio" name="bookmaker_choice" value="{{ b }}" {% if bookmaker == b %}checked{% endif %}>
+          <span>{{ b }}</span>
+        </label>
+        {% endfor %}
+        <label class="chip chip-lg">
+          <input type="radio" name="bookmaker_choice" value="__other__" {% if bookmaker and bookmaker not in bookmakers %}checked{% endif %}>
+          <span>Other…</span>
+        </label>
+      </div>
+      <input type="hidden" name="bookmaker" id="bookmaker" value="{{ bookmaker or 'DraftKings' }}">
+      <input type="text" id="bookmaker_other" class="meta-other" placeholder="Book name" {% if bookmaker and bookmaker not in bookmakers %}value="{{ bookmaker }}"{% else %}hidden{% endif %}>
+    </div>
+
+    <div class="meta-row" id="model_meta" {% if source != "model" %}hidden{% endif %}>
+      <span class="upload-label">Model version</span>
+      <div class="chip-row" role="radiogroup" aria-label="Model version">
+        {% for v in model_versions %}
+        <label class="chip chip-lg">
+          <input type="radio" name="model_version_choice" value="{{ v }}" {% if model_version == v %}checked{% endif %}>
+          <span>{{ v }}</span>
+        </label>
+        {% endfor %}
+        <label class="chip chip-lg">
+          <input type="radio" name="model_version_choice" value="__other__" {% if model_version and model_version not in model_versions %}checked{% endif %}>
+          <span>Other…</span>
+        </label>
+      </div>
+      <input type="hidden" name="model_version" id="model_version" value="{{ model_version }}">
+      <input type="text" id="model_version_other" class="meta-other" placeholder="Version name" {% if model_version and model_version not in model_versions %}value="{{ model_version }}"{% else %}hidden{% endif %}>
+    </div>
+
+    <div class="meta-row" id="user_meta" {% if source != "user" %}hidden{% endif %}>
+      <span class="upload-label">Who</span>
+      <div class="chip-row" role="radiogroup" aria-label="Username">
+        {% for u in usernames %}
+        <label class="chip chip-lg">
+          <input type="radio" name="username" value="{{ u }}" {% if username == u %}checked{% endif %}>
+          <span>{{ u }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-section">
+    <span class="upload-label">How</span>
+    <div class="seg seg-mode" role="radiogroup" aria-label="Entry mode">
+      <label class="seg-opt">
+        <input type="radio" name="mode_choice" value="enter" checked>
+        <span>Enter spreads</span>
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="mode_choice" value="file">
+        <span>Upload file</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="upload-section" id="mode-enter">
+    {% include "partials/upload_entries.html" %}
+  </div>
+
+  <div class="upload-section" id="mode-file" hidden>
+    <label class="drop" id="drop">
+      <input type="file" name="file" id="file" accept=".csv,.xlsx,.xls">
+      <span class="drop-title" id="drop-title">Drop CSV or Excel here</span>
+      <span class="drop-sub" id="drop-sub">or click to browse</span>
+    </label>
+    <div class="schema-help">
+      <p class="upload-label">Format · CSV or Excel</p>
+      <p class="muted schema-cols">away_team · home_team · spread</p>
+      <div class="table-card schema-table">
+        <table>
+          <thead>
+            <tr><th>away_team</th><th>home_team</th><th>spread</th></tr>
+          </thead>
+          <tbody>
+            {% for r in sample_rows %}
+            <tr>
+              <td class="mono">{{ r.away_team }}</td>
+              <td class="mono">{{ r.home_team }}</td>
+              <td class="mono">{{ r.spread }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-actions">
+    <button class="btn-primary" type="submit">Log picks</button>
+  </div>
 </form>
+
 <script>
-function toggleMeta() {
-  const s = document.getElementById("source").value;
-  document.getElementById("model_version_wrap").hidden = s !== "model";
-  document.getElementById("username_wrap").hidden = s !== "user";
-}
-toggleMeta();
+(function () {
+  const form = document.getElementById("upload-form");
+  const modeInput = document.getElementById("mode");
+  const modeEnter = document.getElementById("mode-enter");
+  const modeFile = document.getElementById("mode-file");
+  const vegasMeta = document.getElementById("vegas_meta");
+  const modelMeta = document.getElementById("model_meta");
+  const userMeta = document.getElementById("user_meta");
+  const bookHidden = document.getElementById("bookmaker");
+  const bookOther = document.getElementById("bookmaker_other");
+  const modelHidden = document.getElementById("model_version");
+  const modelOther = document.getElementById("model_version_other");
+  const file = document.getElementById("file");
+  const drop = document.getElementById("drop");
+  const dropTitle = document.getElementById("drop-title");
+  const dropSub = document.getElementById("drop-sub");
+
+  function source() {
+    const el = form.querySelector('input[name="source"]:checked');
+    return el ? el.value : "vegas";
+  }
+
+  function mode() {
+    const el = form.querySelector('input[name="mode_choice"]:checked');
+    return el ? el.value : "enter";
+  }
+
+  function week() {
+    const el = form.querySelector('input[name="week"]:checked');
+    return el ? el.value : "1";
+  }
+
+  function syncBookmaker() {
+    const choice = form.querySelector('input[name="bookmaker_choice"]:checked');
+    if (!choice) {
+      bookHidden.value = "";
+      bookOther.hidden = true;
+      return;
+    }
+    if (choice.value === "__other__") {
+      bookOther.hidden = false;
+      bookHidden.value = bookOther.value.trim();
+    } else {
+      bookOther.hidden = true;
+      bookOther.value = "";
+      bookHidden.value = choice.value;
+    }
+  }
+
+  function syncModelVersion() {
+    const choice = form.querySelector('input[name="model_version_choice"]:checked');
+    if (!choice) {
+      modelHidden.value = "";
+      modelOther.hidden = true;
+      return;
+    }
+    if (choice.value === "__other__") {
+      modelOther.hidden = false;
+      modelHidden.value = modelOther.value.trim();
+    } else {
+      modelOther.hidden = true;
+      modelOther.value = "";
+      modelHidden.value = choice.value;
+    }
+  }
+
+  function syncMeta() {
+    const s = source();
+    vegasMeta.hidden = s !== "vegas";
+    modelMeta.hidden = s !== "model";
+    userMeta.hidden = s !== "user";
+    if (s !== "vegas") {
+      bookHidden.value = "";
+      bookOther.hidden = true;
+      bookOther.value = "";
+      form.querySelectorAll('input[name="bookmaker_choice"]').forEach((r) => { r.checked = false; });
+    } else if (!form.querySelector('input[name="bookmaker_choice"]:checked')) {
+      const dk = form.querySelector('input[name="bookmaker_choice"][value="DraftKings"]');
+      if (dk) dk.checked = true;
+      syncBookmaker();
+    } else {
+      syncBookmaker();
+    }
+    if (s !== "model") {
+      modelHidden.value = "";
+      modelOther.hidden = true;
+      modelOther.value = "";
+      form.querySelectorAll('input[name="model_version_choice"]').forEach((r) => { r.checked = false; });
+    } else {
+      syncModelVersion();
+    }
+    if (s !== "user") {
+      form.querySelectorAll('input[name="username"]').forEach((r) => { r.checked = false; });
+    }
+  }
+
+  function syncMode() {
+    const m = mode();
+    modeInput.value = m;
+    modeEnter.hidden = m !== "enter";
+    modeFile.hidden = m !== "file";
+    file.required = m === "file";
+  }
+
+  function entriesUrl() {
+    const params = new URLSearchParams({
+      week: week(),
+      season: document.getElementById("season").value,
+      source: source(),
+      bookmaker: bookHidden.value || "",
+      username: (form.querySelector('input[name="username"]:checked') || {}).value || "",
+      model_version: modelHidden.value || "",
+    });
+    return "/upload/entries?" + params.toString();
+  }
+
+  function reloadEntries() {
+    if (mode() !== "enter") return;
+    fetch(entriesUrl(), { headers: { "HX-Request": "true" } })
+      .then((r) => r.text())
+      .then((html) => {
+        const box = document.getElementById("entries");
+        if (!box) return;
+        const wrap = document.createElement("div");
+        wrap.innerHTML = html.trim();
+        const next = wrap.querySelector("#entries") || wrap.firstElementChild;
+        if (next) box.replaceWith(next);
+      })
+      .catch(() => {});
+  }
+
+  form.querySelectorAll('input[name="source"]').forEach((el) => {
+    el.addEventListener("change", () => { syncMeta(); reloadEntries(); });
+  });
+  form.querySelectorAll('input[name="week"]').forEach((el) => {
+    el.addEventListener("change", reloadEntries);
+  });
+  form.querySelectorAll('input[name="bookmaker_choice"]').forEach((el) => {
+    el.addEventListener("change", () => { syncBookmaker(); reloadEntries(); });
+  });
+  form.querySelectorAll('input[name="model_version_choice"]').forEach((el) => {
+    el.addEventListener("change", () => { syncModelVersion(); reloadEntries(); });
+  });
+  form.querySelectorAll('input[name="username"]').forEach((el) => {
+    el.addEventListener("change", reloadEntries);
+  });
+  form.querySelectorAll('input[name="mode_choice"]').forEach((el) => {
+    el.addEventListener("change", syncMode);
+  });
+  bookOther.addEventListener("change", () => { bookHidden.value = bookOther.value.trim(); reloadEntries(); });
+  bookOther.addEventListener("input", () => { bookHidden.value = bookOther.value.trim(); });
+  modelOther.addEventListener("change", () => { modelHidden.value = modelOther.value.trim(); reloadEntries(); });
+  modelOther.addEventListener("input", () => { modelHidden.value = modelOther.value.trim(); });
+
+  function showFile(f) {
+    if (!f) return;
+    dropTitle.textContent = f.name;
+    dropSub.textContent = (f.size / 1024).toFixed(1) + " KB";
+    drop.classList.add("has-file");
+  }
+
+  file.addEventListener("change", () => showFile(file.files[0]));
+  ["dragenter", "dragover"].forEach((ev) => {
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach((ev) => {
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("dragover"); });
+  });
+  drop.addEventListener("drop", (e) => {
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    file.files = dt.files;
+    showFile(f);
+  });
+
+  form.addEventListener("submit", (e) => {
+    const s = source();
+    if (s === "vegas") syncBookmaker();
+    if (s === "model") syncModelVersion();
+    syncMode();
+    if (s === "vegas" && !bookHidden.value) {
+      e.preventDefault();
+      alert("Pick a sportsbook.");
+      return;
+    }
+    if (s === "model" && !modelHidden.value) {
+      e.preventDefault();
+      alert("Pick a model version.");
+      return;
+    }
+    if (s === "user" && !form.querySelector('input[name="username"]:checked')) {
+      e.preventDefault();
+      alert("Pick who submitted the picks.");
+      return;
+    }
+    if (mode() === "enter") {
+      const pts = [...form.querySelectorAll('input[name^="pts_"]')].filter((i) => i.value.trim());
+      for (const input of pts) {
+        const id = input.name.slice(4);
+        const fav = form.querySelector(`input[name="fav_${id}"]:checked`);
+        if (!fav) {
+          e.preventDefault();
+          alert("Pick a favorite for each row with points.");
+          return;
+        }
+      }
+    }
+  });
+
+  syncMeta();
+  syncBookmaker();
+  syncModelVersion();
+  syncMode();
+})();
 </script>
+</div>
 {% endblock %}

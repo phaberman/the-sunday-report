@@ -245,6 +245,7 @@ def apply_dk_games(
             matchup=matchup,
             spread=margin,
             source="vegas",
+            bookmaker="DraftKings",
         )
         if pick is not None:
             n += 1

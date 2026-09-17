@@ -15,12 +15,22 @@ def actual_margin(m: Matchup) -> float | None:
 
 def pick_label(p: Pick) -> str:
     if p.source == "vegas":
-        return "vegas"
+        return f"vegas:{p.bookmaker or '?'}"
     if p.source == "model":
         return f"model:{p.model_version or '?'}"
     if p.source == "user":
         return f"user:{p.username or '?'}"
     return p.source
+
+
+def primary_vegas(by_label: dict[str, Pick]) -> Pick | None:
+    """Prefer DraftKings; otherwise any vegas:* pick."""
+    if "vegas:DraftKings" in by_label:
+        return by_label["vegas:DraftKings"]
+    for label, pick in by_label.items():
+        if label.startswith("vegas:"):
+            return pick
+    return None
 
 
 def latest_picks(picks: list[Pick]) -> dict[str, Pick]:
@@ -37,7 +47,7 @@ def latest_picks(picks: list[Pick]) -> dict[str, Pick]:
 def view_matchup(m: Matchup) -> dict:
     actual = actual_margin(m)
     by_label = latest_picks(list(m.picks))
-    vegas_pick = by_label.get("vegas")
+    vegas_pick = primary_vegas(by_label)
     vegas_margin = vegas_pick.spread if vegas_pick else None
 
     spreads = {
@@ -70,7 +80,7 @@ def view_matchup(m: Matchup) -> dict:
     if vegas_margin is not None and actual is not None:
         ats_map = {}
         for label, margin in margins.items():
-            if label == "vegas":
+            if label.startswith("vegas:"):
                 continue
             ats_map[label] = ats(margin, vegas_margin, actual)
         out["ats"] = ats_map

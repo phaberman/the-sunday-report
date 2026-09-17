@@ -28,6 +28,10 @@ def init(session: Session | None = None) -> Session:
         s.execute(text(f"DROP TABLE IF EXISTS {name}"))
     s.commit()
     Base.metadata.create_all(bind)
+    cols = {row[1] for row in s.execute(text("PRAGMA table_info(picks)"))}
+    if cols and "bookmaker" not in cols:
+        s.execute(text("ALTER TABLE picks ADD COLUMN bookmaker TEXT"))
+        s.commit()
     return s
 
 
@@ -75,6 +79,7 @@ def pick_exists(
     spread: float,
     username: str | None,
     model_version: str | None,
+    bookmaker: str | None,
 ) -> bool:
     q = select(Pick.id).where(
         Pick.matchup_id == matchup_id,
@@ -84,8 +89,44 @@ def pick_exists(
         Pick.model_version.is_(model_version)
         if model_version is None
         else Pick.model_version == model_version,
+        Pick.bookmaker.is_(bookmaker) if bookmaker is None else Pick.bookmaker == bookmaker,
     )
     return session.scalar(q) is not None
+
+
+def _identity_filters(
+    source: str,
+    username: str | None,
+    model_version: str | None,
+    bookmaker: str | None,
+) -> list:
+    return [
+        Pick.source == source,
+        Pick.username.is_(username) if username is None else Pick.username == username,
+        Pick.model_version.is_(model_version)
+        if model_version is None
+        else Pick.model_version == model_version,
+        Pick.bookmaker.is_(bookmaker) if bookmaker is None else Pick.bookmaker == bookmaker,
+    ]
+
+
+def latest_identity_pick(
+    session: Session,
+    *,
+    matchup_id: str,
+    source: str,
+    username: str | None = None,
+    model_version: str | None = None,
+    bookmaker: str | None = None,
+) -> Pick | None:
+    """Any prior pick for this matchup + source identity (locks the row)."""
+    q = (
+        select(Pick)
+        .where(Pick.matchup_id == matchup_id, *_identity_filters(source, username, model_version, bookmaker))
+        .order_by(Pick.created_at.desc(), Pick.id.desc())
+        .limit(1)
+    )
+    return session.scalars(q).first()
 
 
 def add_pick(
@@ -96,6 +137,7 @@ def add_pick(
     source: str,
     username: str | None = None,
     model_version: str | None = None,
+    bookmaker: str | None = None,
 ) -> Pick | None:
     """Insert pick unless an identical row already exists. Returns None on dup."""
     if pick_exists(
@@ -105,6 +147,7 @@ def add_pick(
         spread=spread,
         username=username,
         model_version=model_version,
+        bookmaker=bookmaker,
     ):
         return None
     pick = Pick(
@@ -113,6 +156,7 @@ def add_pick(
         source=source,
         username=username,
         model_version=model_version,
+        bookmaker=bookmaker,
     )
     session.add(pick)
     return pick

@@ -41,6 +41,7 @@ class Pick(Base):
     )
     spread: Mapped[float] = mapped_column(Float, nullable=False)  # home margin
     source: Mapped[str] = mapped_column(String, nullable=False)  # vegas|user|model
+    bookmaker: Mapped[str | None] = mapped_column(String, nullable=True)  # vegas only
     model_version: Mapped[str | None] = mapped_column(String, nullable=True)
     username: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
