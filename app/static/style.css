@@ -67,6 +67,11 @@ h1 {
   color: var(--navy);
 }
 .main { padding: 28px 32px 48px; }
+.app-page {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
 .muted { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
 .cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 24px; }
 .card {
@@ -184,14 +189,7 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .closest { font-weight: 700; color: var(--navy); }
 
 /* Upload slate */
-.upload-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding-top: 28px;
-}
 .upload-form {
-  max-width: 720px;
-  margin: 0 auto;
   display: grid;
   gap: 28px;
 }
@@ -247,6 +245,61 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .chip input:focus-visible + span {
   outline: 2px solid var(--navy-2);
   outline-offset: 2px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border: 1px solid var(--navy);
+  border-radius: 8px;
+  background: var(--navy);
+  font-size: 12px;
+  font-weight: 650;
+  color: #fff;
+  white-space: nowrap;
+}
+.badge-muted {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--muted);
+}
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-row form { margin: 0; }
+.matchups-toolbar {
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.matchups-toolbar-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.matchups-weeks {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.matchups-actions {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.matchups-actions button,
+.matchups-actions a.btn {
+  width: auto;
+  min-width: 0;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
 }
 .seg {
   display: grid;

@@ -314,14 +314,20 @@ def export_matchups_xlsx(rows: list[dict]) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "matchups"
-    ws.append(["Away", "Home", "Kickoff", "Score"])
+    ws.append(
+        ["Away", "Home", "Kickoff", "Away Points", "Home Points", "Diff", "Winner"]
+    )
     for r in rows:
+        diff = r.get("diff")
         ws.append(
             [
                 r["away_team"],
                 r["home_team"],
                 r.get("kickoff") or "",
-                r.get("score") or "—",
+                r["away_points"] if r.get("away_points") is not None else "",
+                r["home_points"] if r.get("home_points") is not None else "",
+                f"{diff:+d}" if diff is not None else "",
+                r.get("winner") or "",
             ]
         )
     buf = BytesIO()

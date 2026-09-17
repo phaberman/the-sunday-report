@@ -24,7 +24,7 @@ def test_matchups_page_and_export():
         r = client.get("/matchups")
         assert r.status_code == 200
         assert "Away" in r.text
-        assert "Export Excel" in r.text
+        assert "Export" in r.text
         assert "Refresh" in r.text
 
         r = client.get("/matchups", headers={"HX-Request": "true"})
@@ -38,7 +38,7 @@ def test_matchups_page_and_export():
         assert x.content[:2] == b"PK"
 
 
-def test_matchups_team_filter(tmp_path: Path):
+def test_matchups_rows(tmp_path: Path):
     from app.routers import matchups as matchups_router
     from app.schedule import apply_schedule_rows
 
@@ -68,13 +68,16 @@ def test_matchups_team_filter(tmp_path: Path):
             },
         ],
     )
-    sea = matchups_router._filtered_rows(session, 2026, 1, "SEA")
-    assert len(sea) == 1
-    assert sea[0]["away_team"] == "NE"
-    assert sea[0]["score"] == "10–13"
-    blank = matchups_router._filtered_rows(session, 2026, 1, "CHI")
-    assert len(blank) == 1
-    assert blank[0]["score"] == "—"
+    rows = matchups_router._rows(session, 2026, 1)
+    assert len(rows) == 2
+    sea = next(r for r in rows if r["home_team"] == "SEA")
+    assert sea["away_points"] == 10
+    assert sea["home_points"] == 13
+    assert sea["diff"] == 3
+    assert sea["winner"] == "SEA"
+    chi = next(r for r in rows if r["home_team"] == "CAR")
+    assert chi["away_points"] is None
+    assert chi["winner"] is None
 
 
 def test_refresh_schedule_upsert_no_dups(tmp_path: Path):

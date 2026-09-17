@@ -16,18 +16,27 @@ from app.schedule import refresh_schedule
 router = APIRouter()
 
 
-def _score_text(m: Matchup) -> str:
-    if m.away_score is None or m.home_score is None:
-        return "—"
-    return f"{m.away_score}–{m.home_score}"
-
-
 def _row(m: Matchup) -> dict:
+    played = m.away_score is not None and m.home_score is not None
+    away_pts = m.away_score if played else None
+    home_pts = m.home_score if played else None
+    diff = (home_pts - away_pts) if played else None
+    if not played:
+        winner = None
+    elif away_pts == home_pts:
+        winner = "TIE"
+    elif away_pts > home_pts:
+        winner = m.away_team
+    else:
+        winner = m.home_team
     return {
         "away_team": m.away_team,
         "home_team": m.home_team,
         "kickoff": format_kickoff(m.kickoff),
-        "score": _score_text(m),
+        "away_points": away_pts,
+        "home_points": home_pts,
+        "diff": diff,
+        "winner": winner,
     }
 
 
@@ -46,24 +55,17 @@ def _pick_week(conn, week: int | None) -> tuple[int, int]:
     return live
 
 
-def _filtered_rows(conn, season: int, week: int, team: str | None) -> list[dict]:
-    matchups = db.matchups_for(conn, season, week)
-    if team:
-        t = team.upper()
-        matchups = [m for m in matchups if m.away_team == t or m.home_team == t]
-    return [_row(m) for m in matchups]
+def _rows(conn, season: int, week: int) -> list[dict]:
+    return [_row(m) for m in db.matchups_for(conn, season, week)]
 
 
-def _ctx(conn, *, week: int | None, team: str | None, flash: str = "", error: str = ""):
+def _ctx(conn, *, week: int | None, flash: str = "", error: str = ""):
     season, shown = _pick_week(conn, week)
-    team = (team or "").strip().upper() or None
     return {
         "season": season,
         "week": shown,
         "week_list": db.weeks(conn) or [(season, shown)],
-        "teams": db.teams(conn),
-        "team": team or "",
-        "rows": _filtered_rows(conn, season, shown, team),
+        "rows": _rows(conn, season, shown),
         "flash": flash,
         "error": error,
         "nav": "matchups",
@@ -75,44 +77,37 @@ def matchups(
     request: Request,
     conn: DbConn,
     week: int | None = None,
-    team: str | None = None,
     flash: str = "",
     error: str = "",
 ):
-    ctx = _ctx(conn, week=week, team=team, flash=flash, error=error)
+    ctx = _ctx(conn, week=week, flash=flash, error=error)
     if is_htmx(request):
         return templates.TemplateResponse(request, "partials/matchups_board.html", ctx)
     return templates.TemplateResponse(request, "matchups.html", ctx)
 
 
 @router.post("/matchups/refresh")
-def refresh(
-    conn: DbConn,
-    week: int | None = Form(None),
-    team: str | None = Form(None),
-):
-    q_team = f"&team={quote(team)}" if team else ""
+def refresh(conn: DbConn, week: int | None = Form(None)):
     try:
         info = refresh_schedule(conn, SEASON)
         msg = f"Updated {info['n']} matchups ({info['with_scores']} with scores)."
         w = week if week is not None else _pick_week(conn, None)[1]
         return RedirectResponse(
-            f"/matchups?flash={quote(msg)}&week={w}{q_team}",
+            f"/matchups?flash={quote(msg)}&week={w}",
             status_code=303,
         )
     except Exception as e:
         w = week if week is not None else 1
         return RedirectResponse(
-            f"/matchups?error={quote(str(e))}&week={w}{q_team}",
+            f"/matchups?error={quote(str(e))}&week={w}",
             status_code=303,
         )
 
 
 @router.get("/matchups/export")
-def export_xlsx(conn: DbConn, week: int | None = None, team: str | None = None):
+def export_xlsx(conn: DbConn, week: int | None = None):
     season, shown = _pick_week(conn, week)
-    team = (team or "").strip().upper() or None
-    rows = _filtered_rows(conn, season, shown, team)
+    rows = _rows(conn, season, shown)
     name = f"{season}_week_{shown:02d}_matchups.xlsx"
     return Response(
         content=odds.export_matchups_xlsx(rows),

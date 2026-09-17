@@ -1,45 +1,33 @@
 {% extends "base.html" %}
 {% block body %}
+<div class="app-page">
 <p class="muted">{{ season }} · Week {{ week }}</p>
 {% if flash %}<p class="flash">{{ flash }}</p>{% endif %}
 {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
 
-<div class="toolbar" style="margin-bottom:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end">
-  <div>
-    <p class="muted" style="margin:0 0 6px">Week</p>
-    <div class="chip-row" role="radiogroup" aria-label="Week">
-      {% for s, w in week_list %}
-      <label class="chip">
-        <input type="radio" name="week" value="{{ w }}"
-          {% if w == week %}checked{% endif %}
-          hx-get="/matchups"
-          hx-target="#board"
-          hx-swap="outerHTML"
-          hx-include="[name='team']">
-        <span>{{ w }}</span>
-      </label>
-      {% endfor %}
-    </div>
+<div class="toolbar matchups-toolbar">
+  <span class="muted matchups-toolbar-label">Week</span>
+  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
+    {% for s, w in week_list %}
+    <label class="chip">
+      <input type="radio" name="week" value="{{ w }}"
+        {% if w == week %}checked{% endif %}
+        hx-get="/matchups"
+        hx-target="#board"
+        hx-swap="outerHTML">
+      <span>{{ w }}</span>
+    </label>
+    {% endfor %}
   </div>
-  <label>Team
-    <select name="team"
-      hx-get="/matchups"
-      hx-target="#board"
-      hx-swap="outerHTML"
-      hx-include="[name='week']:checked">
-      <option value="" {% if not team %}selected{% endif %}>All</option>
-      {% for t in teams %}
-      <option value="{{ t }}" {% if t == team %}selected{% endif %}>{{ t }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <form method="post" action="/matchups/refresh" style="display:inline">
-    <input type="hidden" name="week" value="{{ week }}">
-    {% if team %}<input type="hidden" name="team" value="{{ team }}">{% endif %}
-    <button type="submit" class="btn">Refresh</button>
-  </form>
-  <a class="btn btn-ghost" href="/matchups/export?week={{ week }}{% if team %}&team={{ team }}{% endif %}">Export Excel</a>
+  <div class="btn-row matchups-actions">
+    <form method="post" action="/matchups/refresh">
+      <input type="hidden" name="week" value="{{ week }}">
+      <button type="submit" class="btn btn-sm">Refresh</button>
+    </form>
+    <a class="btn btn-ghost btn-sm" href="/matchups/export?week={{ week }}">Export</a>
+  </div>
 </div>
 
 {% include "partials/matchups_board.html" %}
+</div>
 {% endblock %}
