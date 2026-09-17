@@ -20,21 +20,25 @@
             <input type="hidden" name="home_{{ r.id }}" value="{{ r.home_team }}">
           </td>
           {% if r.locked %}
-          <td colspan="2" class="locked-cell">
-            <span class="locked-badge">Logged</span>
+          <td>
+            <div class="chip-row fav-row fav-display" aria-label="Favorite {{ r.game }}">
+              <span class="chip fav-chip{% if r.locked_favorite == r.away_team %} fav-active{% endif %}"><span>{{ r.away_team }}</span></span>
+              <span class="chip fav-chip{% if r.locked_favorite == r.home_team %} fav-active{% endif %}"><span>{{ r.home_team }}</span></span>
+            </div>
+          </td>
+          <td class="locked-points">
             <span class="mono">{{ r.locked_spread }}</span>
           </td>
           {% else %}
           <td>
-            <div class="chip-row fav-row" role="radiogroup" aria-label="Favorite {{ r.game }}">
-              <label class="chip">
-                <input type="radio" name="fav_{{ r.id }}" value="{{ r.away_team }}">
-                <span>{{ r.away_team }}</span>
-              </label>
-              <label class="chip">
-                <input type="radio" name="fav_{{ r.id }}" value="{{ r.home_team }}" checked>
-                <span>{{ r.home_team }}</span>
-              </label>
+            <div
+              class="chip-row fav-row fav-display"
+              data-away="{{ r.away_team }}"
+              data-home="{{ r.home_team }}"
+              aria-label="Favorite {{ r.game }}"
+            >
+              <span class="chip fav-chip" data-team="{{ r.away_team }}"><span>{{ r.away_team }}</span></span>
+              <span class="chip fav-chip" data-team="{{ r.home_team }}"><span>{{ r.home_team }}</span></span>
             </div>
           </td>
           <td>
@@ -42,7 +46,6 @@
               class="pts-input"
               type="number"
               name="pts_{{ r.id }}"
-              min="0"
               step="0.5"
               placeholder="3.5"
               inputmode="decimal"
@@ -54,6 +57,6 @@
       </tbody>
     </table>
   </div>
-  <p class="muted enter-hint">Blank rows are skipped. Logged rows can’t be changed for this source.</p>
+  <p class="muted enter-hint">Points: positive = home favored, negative = away favored. Blank rows are skipped. Logged rows can’t be changed for this source.</p>
   {% endif %}
 </div>

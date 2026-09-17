@@ -8,8 +8,9 @@ from urllib.parse import quote
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app import ingest, odds
-from app.deps import DbConn, templates
+from app import db, ingest, odds
+from app.deps import DbConn, SEASON, templates
+from app.routers.matchups import _pick_week
 
 router = APIRouter()
 
@@ -54,6 +55,18 @@ def _upload_ctx(
     }
 
 
+def _resolve_week(conn, week: int | None) -> tuple[int, int]:
+    """None → current week; explicit week is kept even when empty."""
+    if week is None:
+        return _pick_week(conn, None)
+    wlist = db.weeks(conn)
+    for season, w in wlist:
+        if w == week:
+            return season, w
+    season = wlist[0][0] if wlist else SEASON
+    return season, week
+
+
 def _norm_meta(source: str, bookmaker: str, username: str, model_version: str):
     bookmaker = (bookmaker or "").strip() or None
     username = (username or "").strip() or None
@@ -73,18 +86,18 @@ def upload_form(
     conn: DbConn,
     flash: str = "",
     error: str = "",
-    week: int = 1,
+    week: int | None = None,
     source: str = "vegas",
     bookmaker: str = "DraftKings",
     username: str = "",
     model_version: str = "",
 ):
-    season = date.today().year
+    season, shown = _resolve_week(conn, week)
     bm, user, ver = _norm_meta(source, bookmaker, username, model_version)
     rows = ingest.entry_rows_for(
         conn,
         season=season,
-        week=week,
+        week=shown,
         source=source,
         username=user,
         model_version=ver,
@@ -97,7 +110,7 @@ def upload_form(
             flash=flash,
             error=error,
             season=season,
-            week=week,
+            week=shown,
             source=source,
             bookmaker=bookmaker or "DraftKings",
             username=username,
@@ -112,19 +125,20 @@ def upload_form(
 def upload_entries(
     request: Request,
     conn: DbConn,
-    week: int = 1,
+    week: int | None = None,
     season: int | None = None,
     source: str = "vegas",
     bookmaker: str = "",
     username: str = "",
     model_version: str = "",
 ):
-    season = season or date.today().year
+    picked_season, shown = _resolve_week(conn, week)
+    season = season or picked_season
     bm, user, ver = _norm_meta(source, bookmaker, username, model_version)
     rows = ingest.entry_rows_for(
         conn,
         season=season,
-        week=week,
+        week=shown,
         source=source,
         username=user,
         model_version=ver,
@@ -133,12 +147,12 @@ def upload_entries(
     return templates.TemplateResponse(
         request,
         "partials/upload_entries.html",
-        {"entry_rows": rows, "week": week, "season": season},
+        {"entry_rows": rows, "week": shown, "season": season},
     )
 
 
 def _entries_from_form(form) -> list[dict]:
-    """Parse fav_<id> / pts_<id> / away_<id> / home_<id> fields."""
+    """Parse pts_<id> / away_<id> / home_<id> fields."""
     ids = set()
     for key in form.keys():
         if key.startswith("pts_"):
@@ -152,7 +166,6 @@ def _entries_from_form(form) -> list[dict]:
             {
                 "away_team": form.get(f"away_{mid}") or "",
                 "home_team": form.get(f"home_{mid}") or "",
-                "favorite": form.get(f"fav_{mid}") or "",
                 "points": pts,
             }
         )

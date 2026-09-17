@@ -2,7 +2,13 @@ from pathlib import Path
 
 from app import db, ingest
 from app.models import matchup_id
-from app.spreads import ats, closer, explain_spread, format_spread, to_home_margin
+from app.spreads import ats, closer, explain_spread, favorite_and_line, format_spread, to_home_margin
+
+
+def test_favorite_and_line():
+    assert favorite_and_line("NE", "SEA", 3.5) == ("SEA", "3.5")
+    assert favorite_and_line("BUF", "HOU", -1.0) == ("BUF", "1")
+    assert favorite_and_line("NE", "SEA", 0.0) == ("", "PK")
 
 
 def test_home_favorite():
@@ -37,6 +43,17 @@ def test_closer_and_ats():
 
 def test_matchup_id():
     assert matchup_id(2026, 2, "SEA", "NE") == "2026_02_sea_ne"
+
+
+def test_spread_text_prefers_signed_spread_line():
+    row = {
+        "away_team": "BAL",
+        "home_team": "IND",
+        "spread": "3.5",
+        "spread_line": "-3.5",
+    }
+    assert ingest._spread_text(row) == "-3.5"
+    assert to_home_margin("BAL", "IND", ingest._spread_text(row)) == -3.5
 
 
 def test_ingest_and_dups(tmp_path: Path):

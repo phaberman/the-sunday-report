@@ -25,6 +25,10 @@ SPREAD_RE = re.compile(
 NUM_SPREAD_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?)\s*$")
 
 
+def is_numeric_margin(text: str) -> bool:
+    return bool(NUM_SPREAD_RE.match((text or "").strip()))
+
+
 def norm_team(code: str) -> str:
     c = (code or "").strip().upper()
     return TEAM_ALIAS.get(c, c)
@@ -65,6 +69,14 @@ def to_home_margin(away: str, home: str, spread_text: str) -> float:
     if team == away:
         return point
     raise ValueError(f"spread team {team} not in {away}@{home}")
+
+
+def favorite_and_line(away: str, home: str, margin: float) -> tuple[str, str]:
+    """Favorite team code and line for display (e.g. SEA, 3.5). PK → ('', 'PK')."""
+    if abs(margin) < 1e-9:
+        return "", "PK"
+    fav = home if margin > 0 else away
+    return fav, _trim_num(abs(margin))
 
 
 def format_spread(away: str, home: str, margin: float | None) -> str:

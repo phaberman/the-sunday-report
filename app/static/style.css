@@ -445,25 +445,25 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   max-width: 2.75rem;
   padding: 7px 0;
   box-sizing: border-box;
+  text-align: center;
 }
-.enter-table .fav-row .chip input:checked + span {
-  transform: none;
+.enter-table .fav-display .fav-chip span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.enter-table .fav-display .fav-chip.fav-active span {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
 }
 .enter-table .row-locked td { color: var(--muted); background: var(--stripe); }
-.locked-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.locked-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--navy);
-  background: #e8eef6;
-  padding: 4px 8px;
-  border-radius: 999px;
+.enter-table .locked-points .mono {
+  display: inline-block;
+  min-width: 5.5rem;
+  padding: 8px 10px;
+  font-variant-numeric: tabular-nums;
 }
 .enter-hint, .empty-entries { margin: 10px 0 0; }
 .schema-help { margin-top: 18px; }

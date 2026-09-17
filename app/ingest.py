@@ -7,10 +7,24 @@ import io
 from pathlib import Path
 
 from app.db import ROOT, add_pick, latest_identity_pick, upsert_matchup
-from app.spreads import format_spread, norm_team, to_home_margin
+from app.spreads import (
+    favorite_and_line,
+    format_spread,
+    is_numeric_margin,
+    norm_team,
+    to_home_margin,
+)
 
 PICKS_DIR = ROOT / "data" / "picks"
 SOURCES = frozenset({"vegas", "user", "model"})
+
+
+def _norm_row(row: dict) -> dict:
+    return {
+        (k or "").strip().lower(): (v or "").strip()
+        for k, v in row.items()
+        if k and str(k).strip()
+    }
 
 
 def _rows_from_csv(text: str) -> list[dict]:
@@ -18,7 +32,7 @@ def _rows_from_csv(text: str) -> list[dict]:
     reader = csv.DictReader(f)
     rows = []
     for raw in reader:
-        row = {(k or "").strip(): (v or "").strip() for k, v in raw.items() if k and k.strip()}
+        row = _norm_row(raw)
         if any(row.values()):
             rows.append(row)
     return rows
@@ -38,6 +52,7 @@ def _rows_from_xlsx(data: bytes) -> list[dict]:
             if not h:
                 continue
             row[h] = "" if v is None else str(v).strip()
+        row = _norm_row(row)
         if any(row.values()):
             rows.append(row)
     return rows
@@ -51,9 +66,18 @@ def parse_upload(filename: str, data: bytes) -> list[dict]:
 
 
 def _spread_text(row: dict) -> str:
+    """Signed home margin from spread_line/spread, else team line (SEA -3.5)."""
+    row = _norm_row(row)
+    spread_line = row.get("spread_line", "")
+    if spread_line and is_numeric_margin(spread_line):
+        return spread_line
+    spread = row.get("spread", "")
+    if spread and is_numeric_margin(spread):
+        return spread
     for key in ("spread", "fair_spread", "line", "vegas"):
-        if row.get(key):
-            return row[key]
+        val = row.get(key, "")
+        if val:
+            return val
     raise ValueError(f"no spread column in {list(row)}")
 
 
@@ -131,7 +155,9 @@ def ingest_entries(
     model_version: str | None = None,
     bookmaker: str | None = None,
 ) -> tuple[int, int, int]:
-    """Insert picks from UI rows {away, home, favorite, points}.
+    """Insert picks from UI rows {away, home, points}.
+
+    Signed points: positive = home favored, negative = away favored, 0 = PK.
 
     Returns (inserted, skipped_blank_or_locked, skipped_dups).
     Locked = identity already has a pick for that matchup.
@@ -144,19 +170,22 @@ def ingest_entries(
     for entry in entries:
         away = norm_team(entry.get("away_team") or "")
         home = norm_team(entry.get("home_team") or "")
-        fav = norm_team(entry.get("favorite") or "")
         pts_raw = (entry.get("points") or "").strip()
         if not pts_raw:
             skipped += 1
             continue
-        if not away or not home or not fav:
+        if not away or not home:
             raise ValueError(f"missing teams in {entry}")
-        if fav not in (away, home):
-            raise ValueError(f"favorite {fav} not in {away}@{home}")
         try:
-            pts = abs(float(pts_raw))
+            signed = float(pts_raw)
         except ValueError as e:
             raise ValueError(f"bad points: {pts_raw!r}") from e
+        if signed > 0:
+            margin = to_home_margin(away, home, f"{home} -{signed:g}")
+        elif signed < 0:
+            margin = to_home_margin(away, home, f"{away} -{abs(signed):g}")
+        else:
+            margin = 0.0
         matchup = upsert_matchup(
             session, season=season, week=week, away_team=away, home_team=home
         )
@@ -171,7 +200,6 @@ def ingest_entries(
         if prior is not None:
             skipped += 1
             continue
-        margin = to_home_margin(away, home, f"{fav} -{pts:g}")
         pick = add_pick(
             session,
             matchup=matchup,
@@ -225,6 +253,14 @@ def entry_rows_for(
                 bookmaker=bookmaker,
             )
         locked = prior is not None
+        locked_favorite = ""
+        locked_points = ""
+        locked_spread = ""
+        if prior:
+            locked_favorite, locked_points = favorite_and_line(
+                m.away_team, m.home_team, prior.spread
+            )
+            locked_spread = format_spread(m.away_team, m.home_team, prior.spread)
         rows.append(
             {
                 "id": m.id,
@@ -232,9 +268,9 @@ def entry_rows_for(
                 "home_team": m.home_team,
                 "game": f"{m.away_team} @ {m.home_team}",
                 "locked": locked,
-                "locked_spread": format_spread(m.away_team, m.home_team, prior.spread)
-                if prior
-                else "",
+                "locked_favorite": locked_favorite,
+                "locked_points": locked_points,
+                "locked_spread": locked_spread,
             }
         )
     return rows

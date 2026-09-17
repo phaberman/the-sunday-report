@@ -120,7 +120,7 @@
     </label>
     <div class="schema-help">
       <p class="upload-label">Format · CSV or Excel</p>
-      <p class="muted schema-cols">away_team · home_team · spread (home margin, e.g. 3.5 or -2.5)</p>
+      <p class="muted schema-cols">away_team · home_team · spread or spread_line (home margin: 3.5 = home fav, -2.5 = away fav) or team line (SEA -3.5)</p>
       <div class="table-card schema-table">
         <table>
           <thead>
@@ -286,6 +286,30 @@
     return "/upload/entries?" + params.toString();
   }
 
+  function syncFavoriteForRow(ptsInput) {
+    const row = ptsInput.closest("tr");
+    const display = row?.querySelector(".fav-display");
+    if (!display) return;
+    const away = display.dataset.away;
+    const home = display.dataset.home;
+    const raw = ptsInput.value.trim();
+    let fav = "";
+    if (raw !== "") {
+      const n = Number(raw);
+      if (!Number.isNaN(n)) {
+        if (n > 0) fav = home;
+        else if (n < 0) fav = away;
+      }
+    }
+    display.querySelectorAll(".fav-chip").forEach((chip) => {
+      chip.classList.toggle("fav-active", chip.dataset.team === fav);
+    });
+  }
+
+  function syncAllFavorites() {
+    form.querySelectorAll('input[name^="pts_"]').forEach(syncFavoriteForRow);
+  }
+
   function reloadEntries() {
     if (mode() !== "enter") return;
     fetch(entriesUrl(), { headers: { "HX-Request": "true" } })
@@ -297,6 +321,7 @@
         wrap.innerHTML = html.trim();
         const next = wrap.querySelector("#entries") || wrap.firstElementChild;
         if (next) box.replaceWith(next);
+        syncAllFavorites();
       })
       .catch(() => {});
   }
@@ -318,6 +343,9 @@
   });
   form.querySelectorAll('input[name="mode_choice"]').forEach((el) => {
     el.addEventListener("change", syncMode);
+  });
+  form.addEventListener("input", (e) => {
+    if (e.target.matches('input[name^="pts_"]')) syncFavoriteForRow(e.target);
   });
   bookOther.addEventListener("change", () => { bookHidden.value = bookOther.value.trim(); reloadEntries(); });
   bookOther.addEventListener("input", () => { bookHidden.value = bookOther.value.trim(); });
@@ -370,18 +398,6 @@
       alert("Pick who submitted the picks.");
       return;
     }
-    if (mode() === "enter") {
-      const pts = [...form.querySelectorAll('input[name^="pts_"]')].filter((i) => i.value.trim());
-      for (const input of pts) {
-        const id = input.name.slice(4);
-        const fav = form.querySelector(`input[name="fav_${id}"]:checked`);
-        if (!fav) {
-          e.preventDefault();
-          alert("Pick a favorite for each row with points.");
-          return;
-        }
-      }
-    }
   });
 
   syncMeta();
@@ -389,6 +405,7 @@
   syncModelVersion();
   syncUsername();
   syncMode();
+  syncAllFavorites();
 })();
 </script>
 </div>

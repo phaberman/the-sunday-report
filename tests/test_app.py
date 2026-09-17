@@ -244,7 +244,7 @@ def test_upload_page_defaults_to_enter_spreads():
         assert 'id="mode-enter"' in r.text
         assert "away_team · home_team · spread" in r.text
         assert ">3.5<" in r.text
-        assert "SEA -3.5" not in r.text
+        assert "team line" in r.text
 
 
 def test_upload_entries_empty_week():
@@ -270,13 +270,11 @@ def test_ingest_entries_and_lock(tmp_path: Path):
             {
                 "away_team": "NE",
                 "home_team": "SEA",
-                "favorite": "SEA",
                 "points": "3.5",
             },
             {
                 "away_team": "SF",
                 "home_team": "LA",
-                "favorite": "LA",
                 "points": "",
             },
         ],
@@ -301,7 +299,6 @@ def test_ingest_entries_and_lock(tmp_path: Path):
             {
                 "away_team": "NE",
                 "home_team": "SEA",
-                "favorite": "SEA",
                 "points": "7",
             }
         ],
@@ -320,3 +317,24 @@ def test_ingest_entries_and_lock(tmp_path: Path):
     sea = next(r for r in rows if r["home_team"] == "SEA")
     assert sea["locked"] is True
     assert sea["locked_spread"] == "SEA -3.5"
+    assert sea["locked_favorite"] == "SEA"
+    assert sea["locked_points"] == "3.5"
+
+
+def test_ingest_entries_signed_points(tmp_path: Path):
+    session = db.init(db.connect(tmp_path / "signed.db"))
+    inserted, skipped, dups = ingest.ingest_entries(
+        session,
+        [{"away_team": "DET", "home_team": "BUF", "points": "-3"}],
+        season=2026,
+        week=2,
+        source="user",
+        username="Brett",
+    )
+    assert inserted == 1
+    assert skipped == 0
+    assert dups == 0
+    mid = matchup_id(2026, 2, "BUF", "DET")
+    pick = db.latest_identity_pick(session, matchup_id=mid, source="user", username="Brett")
+    assert pick is not None
+    assert pick.spread == -3.0
