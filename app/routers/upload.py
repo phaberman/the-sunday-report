@@ -8,7 +8,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app import ingest
+from app import ingest, odds
 from app.deps import DbConn, templates
 
 router = APIRouter()
@@ -31,6 +31,7 @@ def _upload_ctx(
     username: str = "",
     model_version: str = "",
     entry_rows: list[dict] | None = None,
+    past_weeks: set[tuple[int, int]] | None = None,
 ) -> dict:
     season = season or date.today().year
     return {
@@ -49,6 +50,7 @@ def _upload_ctx(
         "username": username,
         "model_version": model_version,
         "entry_rows": entry_rows or [],
+        "past_weeks": past_weeks or set(),
     }
 
 
@@ -101,6 +103,7 @@ def upload_form(
             username=username,
             model_version=model_version,
             entry_rows=rows,
+            past_weeks=set(odds.past_weeks(odds.load_schedule(conn))),
         ),
     )
 

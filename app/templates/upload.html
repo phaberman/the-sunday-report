@@ -13,7 +13,7 @@
       <span class="upload-label">Week - {{ default_season }} Season</span>
       <div class="chip-row" role="radiogroup" aria-label="Week">
         {% for w in weeks %}
-        <label class="chip">
+        <label class="chip{% if (default_season, w) in past_weeks %} chip-past{% endif %}">
           <input type="radio" name="week" value="{{ w }}" {% if w == week %}checked{% endif %} required>
           <span>{{ w }}</span>
         </label>

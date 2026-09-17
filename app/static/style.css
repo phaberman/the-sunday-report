@@ -45,9 +45,9 @@ h1 {
   letter-spacing: 0.02em;
 }
 .tabs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 240px;
   padding: 3px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
@@ -60,6 +60,7 @@ h1 {
   padding: 6px 8px;
   border-radius: 999px;
   text-align: center;
+  display: block;
 }
 .tabs a:hover { color: #fff; }
 .tabs a.active {
