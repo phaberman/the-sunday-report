@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app-page">
+<p class="muted">{{ season }} · Week {{ week }}</p>
+{% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
+
+<div class="toolbar matchups-toolbar">
+  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
+    {% for s, w in week_list %}
+    <label class="chip{% if (s, w) in past_weeks %} chip-past{% endif %}">
+      <input type="radio" name="week" value="{{ w }}"
+        {% if w == week %}checked{% endif %}
+        hx-get="/spreads"
+        hx-target="#board"
+        hx-swap="outerHTML">
+      <span>{{ w }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="btn-row matchups-actions">
+    <form method="post" action="/spreads/refresh">
+      <input type="hidden" name="week" value="{{ week }}">
+      <button type="submit" class="btn btn-sm" {% if not is_current_week %}disabled{% endif %}>Get Spreads</button>
+    </form>
+    <a class="btn btn-ghost btn-sm" href="/spreads/export?week={{ week }}">Export</a>
+  </div>
+</div>
+
+{% include "partials/spreads_board.html" %}
+</div>
+
+{% if toast %}
+<div class="toast" id="toast" role="status">{{ toast }}</div>
+<script>
+(function () {
+  var el = document.getElementById("toast");
+  if (!el) return;
+  function hide() {
+    if (el.classList.contains("hide")) return;
+    el.classList.add("hide");
+    setTimeout(function () { el.remove(); }, 200);
+  }
+  el.addEventListener("click", hide);
+  setTimeout(hide, 5000);
+})();
+</script>
+{% endif %}
+{% endblock %}

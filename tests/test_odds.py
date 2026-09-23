@@ -6,8 +6,10 @@ from app.odds import (
     apply_dk_games,
     current_week,
     dk_home_point,
+    export_spreads_xlsx,
     export_week_xlsx,
     format_kickoff,
+    format_kickoff_date,
     past_weeks,
     team_code,
     week_row,
@@ -68,6 +70,7 @@ def test_week_row_thursday_utc_next_day():
     hit = week_row(_sched(), "DET", "BUF", "2026-09-18T00:15:00Z")
     assert hit["week"] == 2
     assert format_kickoff("2026-09-18T00:15:00Z") == "2026-09-18 08:15"
+    assert format_kickoff_date("2026-09-18T00:15:00Z") == "2026-09-18"
 
 
 def test_current_week_skips_finished_and_future():
@@ -138,3 +141,25 @@ def test_apply_dk_and_export(tmp_path):
     assert ws["D2"].value == "BUF"
     assert ws["E2"].value == "DET"
     assert ws["F2"].value == "BUF -3"
+
+
+def test_export_spreads_xlsx_columns():
+    rows = [
+        {
+            "date": "2026-09-18",
+            "home_team": "BUF",
+            "away_team": "DET",
+            "vegas": "BUF -3",
+        }
+    ]
+    xlsx = export_spreads_xlsx(rows)
+    assert xlsx[:2] == b"PK"
+    from openpyxl import load_workbook
+
+    wb = load_workbook(BytesIO(xlsx))
+    ws = wb.active
+    assert [c.value for c in ws[1]] == ["Date", "Home Team", "Away Team", "Spread"]
+    assert ws["A2"].value == "2026-09-18"
+    assert ws["B2"].value == "BUF"
+    assert ws["C2"].value == "DET"
+    assert ws["D2"].value == "BUF -3"

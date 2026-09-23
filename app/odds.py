@@ -149,6 +149,15 @@ def format_kickoff(iso: str | None) -> str:
     return dt.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M")
 
 
+def format_kickoff_date(iso: str | None) -> str:
+    if not iso:
+        return ""
+    dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d")
+
+
 def current_week(
     schedule: list[dict] | None = None, today: date | None = None
 ) -> tuple[int, int]:
@@ -279,8 +288,31 @@ def refresh_spreads(session) -> dict[str, str | int]:
         "n": n,
         "remaining": headers.get("x-requests-remaining", "?"),
         "used": headers.get("x-requests-used", "?"),
+        "last": headers.get("x-requests-last", "?"),
         "pulled_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+
+
+def export_spreads_xlsx(rows: list[dict]) -> bytes:
+    from openpyxl import Workbook
+    from io import BytesIO
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "spreads"
+    ws.append(["Date", "Home Team", "Away Team", "Spread"])
+    for r in rows:
+        ws.append(
+            [
+                r.get("date") or "",
+                r["home_team"],
+                r["away_team"],
+                r.get("vegas") or "",
+            ]
+        )
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def export_week_xlsx(rows: list[dict]) -> bytes:

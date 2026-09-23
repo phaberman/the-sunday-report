@@ -55,22 +55,12 @@ def picks(week: int | None = None):
 
 @router.post("/refresh")
 def refresh(conn: DbConn):
-    try:
-        info = odds.refresh_spreads(conn)
-        msg = (
-            f"updated {info['n']} games · "
-            f"API calls remaining {info['remaining']} (used {info['used']})"
-        )
-        return RedirectResponse(f"/?flash={quote(msg)}", status_code=303)
-    except Exception as e:
-        return RedirectResponse(f"/?error={quote(str(e))}", status_code=303)
+    return RedirectResponse("/spreads/refresh", status_code=307)
 
 
 @router.get("/export")
-def export_xlsx(conn: DbConn):
-    season, week = _live_week()
-    rows = [view_matchup(m) for m in db.matchups_for(conn, season, week)]
-    return _xlsx(rows, season, week)
+def export_xlsx():
+    return RedirectResponse("/spreads/export", status_code=307)
 
 
 @router.post("/email")

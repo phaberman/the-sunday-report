@@ -13,7 +13,7 @@ def test_html_pages_render():
         r = client.get("/", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/matchups"
-        for path in ("/matchups", "/upload"):
+        for path in ("/matchups", "/spreads", "/upload"):
             r = client.get(path)
             assert r.status_code == 200, path
             assert "The Sunday Report" in r.text
@@ -97,6 +97,63 @@ def test_matchups_board_with_picks(tmp_path: Path):
         assert r.status_code == 200
         assert 'id="board"' in r.text
         assert "<html" not in r.text.lower()
+
+
+def test_spreads_page_and_export(monkeypatch):
+    from app import odds
+
+    monkeypatch.setattr(odds, "current_week", lambda *a, **k: (2026, 99))
+
+    with TestClient(app) as client:
+        r = client.get("/spreads")
+        assert r.status_code == 200
+        assert "Get Spreads" in r.text
+        assert "Export" in r.text
+        assert ">Date<" in r.text
+        assert 'href="/spreads"' in r.text
+        assert r.text.index('href="/spreads"') < r.text.index("Upload")
+
+        r = client.get("/spreads", headers={"HX-Request": "true"})
+        assert r.status_code == 200
+        assert 'id="board"' in r.text
+        assert "<html" not in r.text.lower()
+
+        x = client.get("/spreads/export", params={"week": 1})
+        assert x.status_code == 200
+        assert "spreadsheetml" in x.headers["content-type"]
+        assert x.content[:2] == b"PK"
+
+        r = client.get("/spreads", params={"week": 1})
+        assert "disabled" in r.text
+
+        r = client.get("/export", follow_redirects=False)
+        assert r.status_code == 307
+        assert r.headers["location"] == "/spreads/export"
+
+
+def test_spreads_refresh_toast(monkeypatch):
+    from app import odds
+
+    monkeypatch.setattr(
+        odds,
+        "refresh_spreads",
+        lambda conn: {
+            "n": 3,
+            "remaining": "497",
+            "used": "3",
+            "last": "1",
+            "pulled_at": "2026-09-23T00:00:00Z",
+        },
+    )
+
+    with TestClient(app) as client:
+        r = client.post("/spreads/refresh", data={"week": 1}, follow_redirects=False)
+        assert r.status_code == 303
+        assert "toast=" in r.headers["location"]
+        r = client.get(r.headers["location"])
+        assert r.status_code == 200
+        assert 'class="toast"' in r.text
+        assert "497 credits remaining" in r.text
 
 
 def test_matchups_page_and_export():
