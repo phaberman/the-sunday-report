@@ -324,15 +324,23 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .matchups-actions {
   flex-shrink: 0;
   margin-left: auto;
+  display: grid;
+  grid-template-columns: repeat(2, 7rem);
+  gap: 8px;
+}
+.matchups-actions form {
+  display: flex;
+  margin: 0;
 }
 .matchups-actions button,
 .matchups-actions a.btn {
-  width: auto;
+  width: 100%;
   min-width: 0;
   min-height: 32px;
   padding: 6px 10px;
   font-size: 12px;
   white-space: nowrap;
+  justify-content: center;
 }
 .btn-sm {
   padding: 6px 10px;
