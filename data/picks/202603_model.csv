@@ -1,0 +1,17 @@
+matchup_id,away_team,home_team,spread,spread_line,pred_margin,fair_spread,home_win_prob,su_pick,fav,dog,decision,p_cover,p_cover_base,fav_edge,filed
+1,ATL,GB,GB -5.5,5.5,6.6,GB -6.5,0.69,GB,GB,ATL,points,0.478,0.488,1.1,false
+2,CAR,CLE,CAR -2.5,-2.5,-0.57,CAR -0.5,0.483,CAR,CAR,CLE,points,0.495,0.488,-1.93,true
+3,CIN,PIT,CIN -3.5,-3.5,-0.63,CIN -0.5,0.481,CIN,CIN,PIT,points,0.498,0.488,-2.87,true
+4,HOU,IND,HOU -3,-3.0,-0.88,HOU -1,0.474,HOU,HOU,IND,points,0.496,0.488,-2.12,true
+5,KC,MIA,KC -11.5,-11.5,-5.33,KC -5.5,0.344,KC,KC,MIA,cover,0.511,0.488,-6.17,true
+6,LAC,BUF,BUF -7,7.0,9.81,BUF -10,0.77,BUF,BUF,LAC,points,0.475,0.488,2.81,true
+7,NE,JAX,JAX -3,3.0,2.21,JAX -2,0.566,JAX,JAX,NE,points,0.481,0.488,-0.79,true
+8,NYJ,DET,DET -6.5,6.5,7.12,DET -7,0.704,DET,DET,NYJ,points,0.48,0.488,0.62,true
+9,SEA,WAS,SEA -7,-7.0,-7.16,SEA -7,0.295,SEA,SEA,WAS,points,0.493,0.488,0.16,true
+10,TEN,NYG,NYG -2.5,2.5,5.22,NYG -5,0.653,NYG,NYG,TEN,points,0.472,0.488,2.72,true
+11,ARI,SF,SF -8.5,8.5,10.65,SF -10.5,0.788,SF,SF,ARI,points,0.477,0.488,2.15,true
+12,MIN,TB,MIN -1.5,-1.5,-4.33,MIN -4.5,0.372,MIN,MIN,TB,points,0.483,0.488,2.83,true
+13,BAL,DAL,BAL -3.5,-3.5,-0.24,PK,0.493,BAL,BAL,DAL,points,0.499,0.488,-3.26,true
+14,LV,NO,NO -3,3.0,2.88,NO -3,0.586,NO,NO,LV,points,0.48,0.488,-0.12,true
+15,LA,DEN,LA -2.5,-2.5,1.54,DEN -1.5,0.546,DEN,LA,DEN,cover,0.5,0.488,-4.04,true
+16,PHI,CHI,PHI -4.5,-4.5,1.5,CHI -1.5,0.545,CHI,PHI,CHI,cover,0.507,0.488,-6.0,true

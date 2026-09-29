@@ -1,0 +1,17 @@
+matchup_id,away_team,home_team,spread,spread_line,fav,dog,decision
+1,ATL,GB,GB -5.5,-5.5,GB,ATL,cover
+2,CAR,CLE,CAR -2.5,-2.5,CAR,CLE,cover
+3,CIN,PIT,CIN -3.5,-3.5,CIN,PIT,cover
+4,HOU,IND,HOU -3,-3,HOU,IND,points
+5,KC,MIA,KC -11.5,-11.5,KC,MIA,cover
+6,LAC,BUF,BUF -7,7,BUF,LAC,cover
+7,NE,JAX,JAX -3,3,JAX,NE,points
+8,NYJ,DET,DET -6.5,6.5,DET,NYJ,cover
+9,SEA,WAS,SEA -7,-7,SEA,WAS,cover
+10,TEN,NYG,NYG -2.5,2.5,NYG,TEN,cover
+11,ARI,SF,SF -8.5,8.5,SF,ARI,cover
+12,MIN,TB,MIN -1.5,-1.5,MIN,TB,cover
+13,BAL,DAL,BAL -3.5,-3.5,BAL,DAL,points
+14,LV,NO,NO -3,3,NO,LV,points
+15,LA,DEN,LA -2.5,-2.5,LA,DEN,cover
+16,PHI,CHI,PHI -4.5,-4.5,PHI,CHI,cover
