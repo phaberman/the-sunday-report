@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine, func, select, text
+from sqlalchemy import and_, create_engine, delete, func, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Base, Matchup, Pick, matchup_id
@@ -191,14 +191,22 @@ def weeks_with_vegas(session: Session) -> list[tuple[int, int]]:
     return [(r.season_year, r.season_week) for r in rows]
 
 
+def _scheduled_matchup_filter():
+    """Real NFL slate rows from schedule refresh (pick-only upserts have no kickoff)."""
+    return and_(Matchup.kickoff.isnot(None), Matchup.kickoff != "")
+
+
 def matchups_for(session: Session, season: int, week: int) -> list[Matchup]:
     return list(
         session.scalars(
             select(Matchup)
-            .where(Matchup.season_year == season, Matchup.season_week == week)
+            .where(
+                Matchup.season_year == season,
+                Matchup.season_week == week,
+                _scheduled_matchup_filter(),
+            )
             .options(selectinload(Matchup.picks))
             .order_by(
-                Matchup.kickoff.is_(None),
                 Matchup.kickoff,
                 Matchup.away_team,
                 Matchup.home_team,
@@ -211,11 +219,10 @@ def matchups_for_season(session: Session, season: int) -> list[Matchup]:
     return list(
         session.scalars(
             select(Matchup)
-            .where(Matchup.season_year == season)
+            .where(Matchup.season_year == season, _scheduled_matchup_filter())
             .options(selectinload(Matchup.picks))
             .order_by(
                 Matchup.season_week,
-                Matchup.kickoff.is_(None),
                 Matchup.kickoff,
                 Matchup.away_team,
                 Matchup.home_team,
@@ -244,3 +251,49 @@ def teams(session: Session) -> list[str]:
         codes.add(away)
         codes.add(home)
     return sorted(codes)
+
+
+def wipe_week_uploads(session: Session, season: int, week: int) -> dict[str, int]:
+    """Delete all picks for a week and remove pick-only matchups (no kickoff)."""
+    ids = list(
+        session.scalars(
+            select(Matchup.id).where(
+                Matchup.season_year == season, Matchup.season_week == week
+            )
+        ).all()
+    )
+    picks_n = 0
+    if ids:
+        res = session.execute(delete(Pick).where(Pick.matchup_id.in_(ids)))
+        picks_n = res.rowcount or 0
+    orphan_res = session.execute(
+        delete(Matchup).where(
+            Matchup.season_year == season,
+            Matchup.season_week == week,
+            Matchup.kickoff.is_(None) | (Matchup.kickoff == ""),
+        )
+    )
+    session.commit()
+    return {
+        "picks_deleted": picks_n,
+        "orphan_matchups_deleted": orphan_res.rowcount or 0,
+    }
+
+
+def wipe_model_and_user_uploads(
+    session: Session, *, usernames: tuple[str, ...] = ("Brett", "Phillip")
+) -> dict[str, int]:
+    """Delete model picks and named user picks; leave Vegas lines. Prune orphan matchups."""
+    model_res = session.execute(delete(Pick).where(Pick.source == "model"))
+    user_res = session.execute(
+        delete(Pick).where(Pick.source == "user", Pick.username.in_(usernames))
+    )
+    orphan_res = session.execute(
+        delete(Matchup).where(Matchup.kickoff.is_(None) | (Matchup.kickoff == ""))
+    )
+    session.commit()
+    return {
+        "model_picks_deleted": model_res.rowcount or 0,
+        "user_picks_deleted": user_res.rowcount or 0,
+        "orphan_matchups_deleted": orphan_res.rowcount or 0,
+    }

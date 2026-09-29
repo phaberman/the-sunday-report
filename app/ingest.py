@@ -6,7 +6,8 @@ import csv
 import io
 from pathlib import Path
 
-from app.db import ROOT, add_pick, latest_identity_pick, upsert_matchup
+from app.db import ROOT, add_pick, latest_identity_pick, matchups_for, upsert_matchup
+from app.models import Matchup, matchup_id
 from app.spreads import (
     favorite_and_line,
     format_decision,
@@ -114,6 +115,29 @@ def _validate_meta(
         raise ValueError("bookmaker only allowed when source=vegas")
 
 
+def _matchup_for_pick(
+    session,
+    *,
+    season: int,
+    week: int,
+    away_team: str,
+    home_team: str,
+) -> Matchup:
+    """Prefer NFL schedule row; match team pair if home/away columns were flipped."""
+    away = norm_team(away_team)
+    home = norm_team(home_team)
+    row = session.get(Matchup, matchup_id(season, week, home, away))
+    if row is not None and row.kickoff:
+        return row
+    pair = {away, home}
+    for m in matchups_for(session, season, week):
+        if {m.away_team, m.home_team} == pair:
+            return m
+    return upsert_matchup(
+        session, season=season, week=week, away_team=away, home_team=home
+    )
+
+
 def ingest_rows(
     session,
     rows: list[dict],
@@ -136,7 +160,7 @@ def ingest_rows(
         home = norm_team(row.get("home_team") or row.get("home") or "")
         if not away or not home:
             raise ValueError(f"missing teams in {row}")
-        matchup = upsert_matchup(
+        matchup = _matchup_for_pick(
             session, season=season, week=week, away_team=away, home_team=home
         )
         if source == "vegas":
@@ -199,7 +223,7 @@ def ingest_entries(
         home = norm_team(entry.get("home_team") or "")
         if not away or not home:
             raise ValueError(f"missing teams in {entry}")
-        matchup = upsert_matchup(
+        matchup = _matchup_for_pick(
             session, season=season, week=week, away_team=away, home_team=home
         )
         prior = latest_identity_pick(

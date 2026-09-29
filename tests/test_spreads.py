@@ -9,6 +9,7 @@ from app.spreads import (
     favorite_and_line,
     format_spread,
     grade_decision,
+    norm_team,
     to_home_margin,
 )
 
@@ -75,9 +76,28 @@ def test_grade_decision_cover_points():
 
 
 def test_ingest_and_dups(tmp_path: Path):
+    from app.schedule import apply_schedule_rows
+
     session = db.init(db.connect(tmp_path / "t.db"))
     path = db.ROOT / "data" / "picks" / "202601_model.csv"
     rows = ingest.parse_upload(path.name, path.read_bytes())
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 1,
+                "gameday": "2026-09-09",
+                "gametime": "20:20",
+                "away_team": norm_team(r.get("away_team") or ""),
+                "home_team": norm_team(r.get("home_team") or ""),
+                "away_score": None,
+                "home_score": None,
+            }
+            for r in rows
+            if (r.get("away_team") or r.get("home_team"))
+        ],
+    )
     inserted, skipped = ingest.ingest_rows(
         session, rows, season=2026, week=1, source="model", model_version="preseason"
     )

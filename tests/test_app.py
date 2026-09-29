@@ -347,7 +347,34 @@ def test_upload_entries_empty_week():
 
 
 def test_ingest_entries_and_lock(tmp_path: Path):
+    from app.schedule import apply_schedule_rows
+
     session = db.init(db.connect(tmp_path / "t.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 1,
+                "gameday": "2026-09-09",
+                "gametime": "20:20",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+            {
+                "season": 2026,
+                "week": 1,
+                "gameday": "2026-09-13",
+                "gametime": "16:25",
+                "away_team": "SF",
+                "home_team": "LA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
     inserted, skipped, dups = ingest.ingest_entries(
         session,
         [
@@ -481,3 +508,64 @@ def test_season_compare_totals(tmp_path: Path):
     assert len(board["weekly"]) == 1
     assert board["chart_model_line"]
     assert board["chart_user_line"]
+
+
+def test_matchups_for_excludes_pick_only_rows(tmp_path: Path):
+    from app.schedule import apply_schedule_rows
+
+    session = db.init(db.connect(tmp_path / "m.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 3,
+                "gameday": "2026-09-20",
+                "gametime": "13:00",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
+    db.upsert_matchup(session, season=2026, week=3, away_team="BUF", home_team="LAC")
+    session.commit()
+    rows = db.matchups_for(session, 2026, 3)
+    assert len(rows) == 1
+    assert rows[0].away_team == "NE"
+
+
+def test_wipe_week_uploads(tmp_path: Path):
+    from app.models import Pick
+    from app.schedule import apply_schedule_rows
+
+    session = db.init(db.connect(tmp_path / "w.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 3,
+                "gameday": "2026-09-20",
+                "gametime": "13:00",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
+    m = db.matchups_for(session, 2026, 3)[0]
+    db.upsert_matchup(session, season=2026, week=3, away_team="BUF", home_team="LAC")
+    session.add(
+        Pick(matchup_id=m.id, spread=3.5, source="vegas", bookmaker="DraftKings")
+    )
+    session.commit()
+    info = db.wipe_week_uploads(session, 2026, 3)
+    assert info["picks_deleted"] == 1
+    assert info["orphan_matchups_deleted"] == 1
+    assert len(db.matchups_for(session, 2026, 3)) == 1
+    assert not m.picks  # relationship may need refresh
+    session.refresh(m)
+    assert list(m.picks) == []
