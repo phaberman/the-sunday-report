@@ -316,6 +316,7 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
+  --week-chip-size: 2rem;
 }
 .matchups-weeks {
   flex: 1 1 auto;
@@ -324,9 +325,12 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .matchups-actions {
   flex-shrink: 0;
   margin-left: auto;
-  display: grid;
-  grid-template-columns: repeat(2, 7rem);
+  display: flex;
   gap: 8px;
+}
+.matchups-actions-icons {
+  display: grid;
+  grid-template-columns: repeat(2, calc(var(--week-chip-size) * 1.5));
 }
 .matchups-actions form {
   display: flex;
@@ -341,6 +345,18 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   font-size: 12px;
   white-space: nowrap;
   justify-content: center;
+}
+.matchups-actions-icons .btn-icon {
+  width: calc(var(--week-chip-size) * 1.5);
+  min-height: 0;
+  padding: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.matchups-actions-icons .btn-icon-svg {
+  display: block;
+  flex-shrink: 0;
 }
 .btn-sm {
   padding: 6px 10px;

@@ -107,8 +107,8 @@ def test_spreads_page_and_export(monkeypatch):
     with TestClient(app) as client:
         r = client.get("/spreads")
         assert r.status_code == 200
-        assert "Get Spreads" in r.text
-        assert "Export" in r.text
+        assert 'aria-label="Get current spreads"' in r.text
+        assert 'aria-label="Export week to Excel"' in r.text
         assert ">Date<" in r.text
         assert 'href="/spreads"' in r.text
         assert r.text.index('href="/spreads"') < r.text.index("Upload")
@@ -161,8 +161,8 @@ def test_matchups_page_and_export():
         r = client.get("/matchups")
         assert r.status_code == 200
         assert "Matchup" in r.text
-        assert "Export" in r.text
-        assert "Refresh" in r.text
+        assert 'aria-label="Export week to Excel"' in r.text
+        assert 'aria-label="Refresh schedule and scores"' in r.text
 
         r = client.get("/matchups", headers={"HX-Request": "true"})
         assert r.status_code == 200
