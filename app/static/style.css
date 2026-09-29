@@ -550,7 +550,6 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   flex: 0 0 auto;
   max-width: 14rem;
 }
-.season-page .compare-cards { max-width: 520px; }
 .compare-card-lead { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy); }
 .compare-pct {
   margin-top: 6px;
@@ -617,6 +616,9 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 }
 .viz-line-model { stroke: var(--navy); }
 .viz-line-user { stroke: var(--red); }
+.viz-line-user-alt { stroke: #c45a00; }
+.viz-swatch.viz-line-user-alt { border-top-color: #c45a00; }
+.viz-week-user-alt { background: #c45a00; }
 .viz-chart-labels {
   display: flex;
   justify-content: space-between;

@@ -9,11 +9,11 @@ from app import db
 from app.deps import (
     DbConn,
     MODEL_VERSION,
+    SCOREBOARD_USERS,
     SEASON,
-    USERNAME,
-    VEGAS_BOOKMAKER,
     is_htmx,
     templates,
+    VEGAS_BOOKMAKER,
 )
 from app.routers.matchups import _pick_week
 from app.score import scoreboard_board, season_compare
@@ -28,7 +28,7 @@ def _week_ctx(conn, *, week: int | None) -> dict:
         matchups,
         bookmaker=VEGAS_BOOKMAKER,
         default_model=MODEL_VERSION,
-        default_user=USERNAME,
+        default_users=SCOREBOARD_USERS,
     )
     return {
         "season": season,
@@ -47,7 +47,7 @@ def _season_ctx(conn) -> dict:
         matchups,
         bookmaker=VEGAS_BOOKMAKER,
         model_version=MODEL_VERSION,
-        username=USERNAME,
+        usernames=SCOREBOARD_USERS,
     )
     return {
         "season": SEASON,

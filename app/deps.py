@@ -19,6 +19,7 @@ SEASON = date.today().year
 VEGAS_BOOKMAKER = "DraftKings"
 MODEL_VERSION = "preseason"
 USERNAME = "Brett"
+SCOREBOARD_USERS = ("Brett", "Phillip")
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -501,13 +501,14 @@ def test_season_compare_totals(tmp_path: Path):
         db.matchups_for_season(session, 2026),
         bookmaker=VEGAS_BOOKMAKER,
         model_version=MODEL_VERSION,
-        username=USERNAME,
+        usernames=("Brett", "Phillip"),
     )
     assert board["model"]["wlp"] == "1-0-0"
-    assert board["user"]["wlp"] == "0-1-0"
+    assert board["users"]["Brett"]["wlp"] == "0-1-0"
+    assert board["users"]["Phillip"]["wlp"] == "0-0-0"
     assert len(board["weekly"]) == 1
     assert board["chart_model_line"]
-    assert board["chart_user_line"]
+    assert board["chart_user_lines"]["Brett"]
 
 
 def test_matchups_for_excludes_pick_only_rows(tmp_path: Path):

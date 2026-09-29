@@ -1,22 +1,24 @@
 <div id="board" class="season-board">
 <div class="cards compare-cards">
-  <div class="card compare-card{% if leader == 'model' %} compare-card-lead{% endif %}">
+  <div class="card compare-card">
     <div class="n">{{ model.wlp }}</div>
     <div class="l">Model W-L-P</div>
     {% if model.win_pct is not none %}
     <div class="compare-pct">{{ model.win_pct }}% win rate</div>
     {% endif %}
   </div>
-  <div class="card compare-card{% if leader == 'user' %} compare-card-lead{% endif %}">
-    <div class="n">{{ user.wlp }}</div>
-    <div class="l">{{ username }} W-L-P</div>
-    {% if user.win_pct is not none %}
-    <div class="compare-pct">{{ user.win_pct }}% win rate</div>
+  {% for u in usernames %}
+  <div class="card compare-card">
+    <div class="n">{{ users[u].wlp }}</div>
+    <div class="l">{{ u }} W-L-P</div>
+    {% if users[u].win_pct is not none %}
+    <div class="compare-pct">{{ users[u].win_pct }}% win rate</div>
     {% endif %}
   </div>
+  {% endfor %}
 </div>
 
-{% if model.settled or user.settled %}
+{% if has_graded %}
 <div class="table-card viz-card">
   <p class="viz-title">Season record mix</p>
   <div class="viz-stack-row">
@@ -27,14 +29,16 @@
       <span class="viz-seg viz-push" style="width: {{ model.bar.push }}%"></span>
     </div>
   </div>
+  {% for u in usernames %}
   <div class="viz-stack-row">
-    <span class="viz-name">{{ username }}</span>
-    <div class="viz-stack" title="W {{ user.win }} · L {{ user.loss }} · P {{ user.push }}">
-      <span class="viz-seg viz-win" style="width: {{ user.bar.win }}%"></span>
-      <span class="viz-seg viz-loss" style="width: {{ user.bar.loss }}%"></span>
-      <span class="viz-seg viz-push" style="width: {{ user.bar.push }}%"></span>
+    <span class="viz-name">{{ u }}</span>
+    <div class="viz-stack" title="W {{ users[u].win }} · L {{ users[u].loss }} · P {{ users[u].push }}">
+      <span class="viz-seg viz-win" style="width: {{ users[u].bar.win }}%"></span>
+      <span class="viz-seg viz-loss" style="width: {{ users[u].bar.loss }}%"></span>
+      <span class="viz-seg viz-push" style="width: {{ users[u].bar.push }}%"></span>
     </div>
   </div>
+  {% endfor %}
   <div class="viz-legend">
     <span><i class="viz-dot viz-win"></i> Win</span>
     <span><i class="viz-dot viz-loss"></i> Loss</span>
@@ -45,10 +49,12 @@
 {% if chart_points %}
 <div class="table-card viz-card">
   <p class="viz-title">Cumulative wins by week</p>
-  <svg class="viz-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Cumulative wins Model versus {{ username }}">
+  <svg class="viz-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Cumulative wins by week">
     <line x1="0" y1="100" x2="100" y2="100" class="viz-axis"/>
     <polyline class="viz-line viz-line-model" points="{{ chart_model_line }}"/>
-    <polyline class="viz-line viz-line-user" points="{{ chart_user_line }}"/>
+    {% for u in usernames %}
+    <polyline class="viz-line viz-line-user{% if loop.index > 1 %}-alt{% endif %}" points="{{ chart_user_lines[u] }}"/>
+    {% endfor %}
   </svg>
   <div class="viz-chart-labels">
     {% for p in chart_points %}
@@ -57,7 +63,9 @@
   </div>
   <div class="viz-legend viz-legend-chart">
     <span><i class="viz-swatch viz-line-model"></i> Model</span>
-    <span><i class="viz-swatch viz-line-user"></i> {{ username }}</span>
+    {% for u in usernames %}
+    <span><i class="viz-swatch viz-line-user{% if loop.index > 1 %}-alt{% endif %}"></i> {{ u }}</span>
+    {% endfor %}
   </div>
 </div>
 {% endif %}
@@ -69,7 +77,9 @@
       <tr>
         <th>Week</th>
         <th>Model</th>
-        <th>{{ username }}</th>
+        {% for u in usernames %}
+        <th>{{ u }}</th>
+        {% endfor %}
         <th>Weekly wins</th>
       </tr>
     </thead>
@@ -78,10 +88,14 @@
       <tr>
         <td>{{ row.week }}</td>
         <td class="mono">{{ row.model.wlp }}</td>
-        <td class="mono">{{ row.user.wlp }}</td>
+        {% for u in usernames %}
+        <td class="mono">{{ row.users[u].wlp }}</td>
+        {% endfor %}
         <td class="viz-week-bars">
           <span class="viz-week-bar viz-week-model" style="height: {{ (row.model.win / max_week_wins * 100) | round(1) }}%" title="Model {{ row.model.win }} wins"></span>
-          <span class="viz-week-bar viz-week-user" style="height: {{ (row.user.win / max_week_wins * 100) | round(1) }}%" title="{{ username }} {{ row.user.win }} wins"></span>
+          {% for u in usernames %}
+          <span class="viz-week-bar viz-week-user{% if loop.index > 1 %}-alt{% endif %}" style="height: {{ (row.users[u].win / max_week_wins * 100) | round(1) }}%" title="{{ u }} {{ row.users[u].win }} wins"></span>
+          {% endfor %}
         </td>
       </tr>
       {% endfor %}

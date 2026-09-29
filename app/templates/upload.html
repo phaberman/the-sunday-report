@@ -178,6 +178,10 @@
   const userHidden = document.getElementById("username");
   const userOther = document.getElementById("username_other");
   const file = document.getElementById("file");
+  const schemaVegas = document.getElementById("schema-vegas");
+  const schemaDecision = document.getElementById("schema-decision");
+  const schemaTableVegas = document.getElementById("schema-table-vegas");
+  const schemaTableDecision = document.getElementById("schema-table-decision");
   const drop = document.getElementById("drop");
   const dropTitle = document.getElementById("drop-title");
   const dropSub = document.getElementById("drop-sub");
@@ -253,6 +257,10 @@
     vegasMeta.hidden = s !== "vegas";
     modelMeta.hidden = s !== "model";
     userMeta.hidden = s !== "user";
+    if (schemaVegas) schemaVegas.hidden = s !== "vegas";
+    if (schemaDecision) schemaDecision.hidden = s === "vegas";
+    if (schemaTableVegas) schemaTableVegas.hidden = s !== "vegas";
+    if (schemaTableDecision) schemaTableDecision.hidden = s === "vegas";
     if (s !== "vegas") {
       bookHidden.value = "";
       bookOther.hidden = true;

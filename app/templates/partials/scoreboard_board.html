@@ -3,7 +3,7 @@
     {% for label, bucket in records.items() %}
     <div class="card">
       <div class="n">{{ bucket.win }}-{{ bucket.loss }}{% if bucket.push %}-{{ bucket.push }}{% endif %}</div>
-      <div class="l">{% if label.startswith('model:') %}Model{% else %}{{ label }}{% endif %} W-L{% if bucket.push %}-P{% endif %}</div>
+      <div class="l">{% if label.startswith('model:') %}Model{% elif label.startswith('user:') %}{{ label.split(':', 1)[1] }}{% else %}{{ label }}{% endif %} W-L{% if bucket.push %}-P{% endif %}</div>
     </div>
     {% else %}
     <div class="card"><div class="n">—</div><div class="l">No picks yet</div></div>

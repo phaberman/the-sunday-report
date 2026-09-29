@@ -85,6 +85,14 @@ def week_identities(matchups: list[Matchup]) -> tuple[list[str], list[str]]:
     return sorted(models), sorted(users)
 
 
+def merge_scoreboard_users(found: list[str], defaults: tuple[str, ...]) -> list[str]:
+    out = list(defaults)
+    for u in found:
+        if u not in out:
+            out.append(u)
+    return out
+
+
 def _grade_pick(
     pick: Pick | None, vegas_margin: float | None, actual: float | None
 ) -> str:
@@ -138,13 +146,12 @@ def scoreboard_board(
     *,
     bookmaker: str,
     default_model: str,
-    default_user: str,
+    default_users: tuple[str, ...],
 ) -> dict:
-    model_versions, usernames = week_identities(matchups)
+    model_versions, found_users = week_identities(matchups)
     if not model_versions:
         model_versions = [default_model]
-    if not usernames:
-        usernames = [default_user]
+    usernames = merge_scoreboard_users(found_users, default_users)
 
     rows = [
         _matchup_row(
@@ -175,7 +182,7 @@ def matchups_board(
         matchups,
         bookmaker=bookmaker,
         default_model=model_version,
-        default_user=username,
+        default_users=(username,),
     )
     rows = []
     for r in data["rows"]:
@@ -263,32 +270,39 @@ def season_compare(
     *,
     bookmaker: str,
     model_version: str,
-    username: str,
+    usernames: tuple[str, ...],
 ) -> dict:
-    """Season Model vs user ATS records and per-week breakdown."""
+    """Season ATS records: model + each user, with per-week breakdown."""
     weeks = sorted({m.season_week for m in matchups})
     weekly: list[dict] = []
     cum_model = 0
-    cum_user = 0
+    cum_users = {u: 0 for u in usernames}
     max_week_wins = 1
     for w in weeks:
         wm = [m for m in matchups if m.season_week == w]
         mr = record_for_identity(
             wm, bookmaker=bookmaker, source="model", name=model_version
         )
-        ur = record_for_identity(
-            wm, bookmaker=bookmaker, source="user", name=username
-        )
+        user_rows = {
+            u: enrich_record(
+                record_for_identity(
+                    wm, bookmaker=bookmaker, source="user", name=u
+                )
+            )
+            for u in usernames
+        }
         cum_model += mr["win"]
-        cum_user += ur["win"]
-        max_week_wins = max(max_week_wins, mr["win"], ur["win"])
+        for u in usernames:
+            cum_users[u] += user_rows[u]["win"]
+            max_week_wins = max(max_week_wins, user_rows[u]["win"])
+        max_week_wins = max(max_week_wins, mr["win"])
         weekly.append(
             {
                 "week": w,
                 "model": enrich_record(mr),
-                "user": enrich_record(ur),
+                "users": user_rows,
                 "cum_model": cum_model,
-                "cum_user": cum_user,
+                "cum_users": dict(cum_users),
             }
         )
 
@@ -300,54 +314,62 @@ def season_compare(
             name=model_version,
         )
     )
-    user_total = enrich_record(
-        record_for_identity(
-            matchups,
-            bookmaker=bookmaker,
-            source="user",
-            name=username,
+    users_total = {
+        u: enrich_record(
+            record_for_identity(
+                matchups,
+                bookmaker=bookmaker,
+                source="user",
+                name=u,
+            )
         )
+        for u in usernames
+    }
+    chart = _cumulative_chart_multi(weekly, usernames)
+    has_graded = model_total["settled"] > 0 or any(
+        u["settled"] > 0 for u in users_total.values()
     )
-    leader = None
-    if model_total["settled"] and user_total["settled"]:
-        if model_total["win"] > user_total["win"]:
-            leader = "model"
-        elif user_total["win"] > model_total["win"]:
-            leader = "user"
-
-    chart = _cumulative_chart(weekly)
     return {
         "model": model_total,
-        "user": user_total,
+        "users": users_total,
+        "usernames": list(usernames),
         "model_version": model_version,
-        "username": username,
         "weekly": weekly,
         "max_week_wins": max_week_wins,
-        "leader": leader,
-        "chart_points": chart,
-        "chart_model_line": " ".join(f"{p['x']},{p['model_y']}" for p in chart),
-        "chart_user_line": " ".join(f"{p['x']},{p['user_y']}" for p in chart),
+        "has_graded": has_graded,
+        "chart_points": chart["points"],
+        "chart_model_line": chart["model_line"],
+        "chart_user_lines": chart["user_lines"],
     }
 
 
-def _cumulative_chart(weekly: list[dict]) -> list[dict]:
+def _cumulative_chart_multi(weekly: list[dict], usernames: tuple[str, ...]) -> dict:
     if not weekly:
-        return []
+        return {"points": [], "model_line": "", "user_lines": {}}
     last = weekly[-1]
-    max_y = max(last["cum_model"], last["cum_user"], 1)
-    out: list[dict] = []
+    max_y = last["cum_model"]
+    for u in usernames:
+        max_y = max(max_y, last["cum_users"].get(u, 0))
+    max_y = max(max_y, 1)
+    points: list[dict] = []
     n = len(weekly)
+    user_lines: dict[str, list[str]] = {u: [] for u in usernames}
+    model_pts: list[str] = []
     for i, row in enumerate(weekly):
         x = round(100.0 * i / max(n - 1, 1), 2)
-        out.append(
-            {
-                "week": row["week"],
-                "x": x,
-                "model_y": round(100.0 - 100.0 * row["cum_model"] / max_y, 2),
-                "user_y": round(100.0 - 100.0 * row["cum_user"] / max_y, 2),
-            }
-        )
-    return out
+        my = round(100.0 - 100.0 * row["cum_model"] / max_y, 2)
+        model_pts.append(f"{x},{my}")
+        pt: dict = {"week": row["week"], "x": x, "model_y": my}
+        for u in usernames:
+            uy = round(100.0 - 100.0 * row["cum_users"][u] / max_y, 2)
+            user_lines[u].append(f"{x},{uy}")
+            pt[f"{u}_y"] = uy
+        points.append(pt)
+    return {
+        "points": points,
+        "model_line": " ".join(model_pts),
+        "user_lines": {u: " ".join(user_lines[u]) for u in usernames},
+    }
 
 
 def tally_decision_records(
