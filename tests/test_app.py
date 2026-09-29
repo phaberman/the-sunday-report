@@ -18,6 +18,14 @@ def test_html_pages_render():
             assert r.status_code == 200, path
             assert "The Sunday Report" in r.text
 
+        r = client.get("/scoreboard", params={"view": "season"})
+        assert r.status_code == 200
+        assert "Season record mix" in r.text
+
+        r = client.get("/season", follow_redirects=False)
+        assert r.status_code == 307
+        assert r.headers["location"] == "/scoreboard?view=season"
+
         r = client.get("/picks", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/matchups"
@@ -396,3 +404,62 @@ def test_ingest_entries_decision(tmp_path: Path):
     pick = db.latest_identity_pick(session, matchup_id=mid, source="user", username="Brett")
     assert pick is not None
     assert pick.decision == "points"
+
+
+def test_season_compare_totals(tmp_path: Path):
+    from app.deps import MODEL_VERSION, USERNAME, VEGAS_BOOKMAKER
+    from app.models import Pick
+    from app.schedule import apply_schedule_rows
+    from app.score import season_compare
+
+    session = db.init(db.connect(tmp_path / "season.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 1,
+                "gameday": "2026-09-09",
+                "gametime": "20:20",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": 17,
+                "home_score": 24,
+            },
+        ],
+    )
+    m = db.matchups_for(session, 2026, 1)[0]
+    session.add(
+        Pick(matchup_id=m.id, spread=3.5, source="vegas", bookmaker="DraftKings")
+    )
+    session.add(
+        Pick(
+            matchup_id=m.id,
+            spread=0.0,
+            decision="cover",
+            source="model",
+            model_version=MODEL_VERSION,
+        )
+    )
+    session.add(
+        Pick(
+            matchup_id=m.id,
+            spread=0.0,
+            decision="points",
+            source="user",
+            username=USERNAME,
+        )
+    )
+    session.commit()
+
+    board = season_compare(
+        db.matchups_for_season(session, 2026),
+        bookmaker=VEGAS_BOOKMAKER,
+        model_version=MODEL_VERSION,
+        username=USERNAME,
+    )
+    assert board["model"]["wlp"] == "1-0-0"
+    assert board["user"]["wlp"] == "0-1-0"
+    assert len(board["weekly"]) == 1
+    assert board["chart_model_line"]
+    assert board["chart_user_line"]

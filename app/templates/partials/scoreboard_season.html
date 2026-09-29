@@ -1,0 +1,96 @@
+<div id="board" class="season-board">
+<div class="cards compare-cards">
+  <div class="card compare-card{% if leader == 'model' %} compare-card-lead{% endif %}">
+    <div class="n">{{ model.wlp }}</div>
+    <div class="l">Model W-L-P</div>
+    {% if model.win_pct is not none %}
+    <div class="compare-pct">{{ model.win_pct }}% win rate</div>
+    {% endif %}
+  </div>
+  <div class="card compare-card{% if leader == 'user' %} compare-card-lead{% endif %}">
+    <div class="n">{{ user.wlp }}</div>
+    <div class="l">{{ username }} W-L-P</div>
+    {% if user.win_pct is not none %}
+    <div class="compare-pct">{{ user.win_pct }}% win rate</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if model.settled or user.settled %}
+<div class="table-card viz-card">
+  <p class="viz-title">Season record mix</p>
+  <div class="viz-stack-row">
+    <span class="viz-name">Model</span>
+    <div class="viz-stack" title="W {{ model.win }} · L {{ model.loss }} · P {{ model.push }}">
+      <span class="viz-seg viz-win" style="width: {{ model.bar.win }}%"></span>
+      <span class="viz-seg viz-loss" style="width: {{ model.bar.loss }}%"></span>
+      <span class="viz-seg viz-push" style="width: {{ model.bar.push }}%"></span>
+    </div>
+  </div>
+  <div class="viz-stack-row">
+    <span class="viz-name">{{ username }}</span>
+    <div class="viz-stack" title="W {{ user.win }} · L {{ user.loss }} · P {{ user.push }}">
+      <span class="viz-seg viz-win" style="width: {{ user.bar.win }}%"></span>
+      <span class="viz-seg viz-loss" style="width: {{ user.bar.loss }}%"></span>
+      <span class="viz-seg viz-push" style="width: {{ user.bar.push }}%"></span>
+    </div>
+  </div>
+  <div class="viz-legend">
+    <span><i class="viz-dot viz-win"></i> Win</span>
+    <span><i class="viz-dot viz-loss"></i> Loss</span>
+    <span><i class="viz-dot viz-push"></i> Push</span>
+  </div>
+</div>
+
+{% if chart_points %}
+<div class="table-card viz-card">
+  <p class="viz-title">Cumulative wins by week</p>
+  <svg class="viz-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Cumulative wins Model versus {{ username }}">
+    <line x1="0" y1="100" x2="100" y2="100" class="viz-axis"/>
+    <polyline class="viz-line viz-line-model" points="{{ chart_model_line }}"/>
+    <polyline class="viz-line viz-line-user" points="{{ chart_user_line }}"/>
+  </svg>
+  <div class="viz-chart-labels">
+    {% for p in chart_points %}
+    <span>W{{ p.week }}</span>
+    {% endfor %}
+  </div>
+  <div class="viz-legend viz-legend-chart">
+    <span><i class="viz-swatch viz-line-model"></i> Model</span>
+    <span><i class="viz-swatch viz-line-user"></i> {{ username }}</span>
+  </div>
+</div>
+{% endif %}
+
+{% if weekly %}
+<div class="table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>Week</th>
+        <th>Model</th>
+        <th>{{ username }}</th>
+        <th>Weekly wins</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in weekly %}
+      <tr>
+        <td>{{ row.week }}</td>
+        <td class="mono">{{ row.model.wlp }}</td>
+        <td class="mono">{{ row.user.wlp }}</td>
+        <td class="viz-week-bars">
+          <span class="viz-week-bar viz-week-model" style="height: {{ (row.model.win / max_week_wins * 100) | round(1) }}%" title="Model {{ row.model.win }} wins"></span>
+          <span class="viz-week-bar viz-week-user" style="height: {{ (row.user.win / max_week_wins * 100) | round(1) }}%" title="{{ username }} {{ row.user.win }} wins"></span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% else %}
+<p class="muted empty-entries">No graded picks yet this season.</p>
+{% endif %}
+</div>

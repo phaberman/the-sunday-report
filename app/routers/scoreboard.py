@@ -1,4 +1,4 @@
-"""Weekly scoreboard: cover/points W-L vs Vegas line."""
+"""Scoreboard: weekly and season ATS vs Vegas line."""
 
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ from app.deps import (
     templates,
 )
 from app.routers.matchups import _pick_week
-from app.score import scoreboard_board
+from app.score import scoreboard_board, season_compare
 
 router = APIRouter()
 
 
-def _ctx(conn, *, week: int | None) -> dict:
+def _week_ctx(conn, *, week: int | None) -> dict:
     season, shown = _pick_week(conn, week)
     matchups = db.matchups_for(conn, season, shown)
     board = scoreboard_board(
@@ -34,14 +34,41 @@ def _ctx(conn, *, week: int | None) -> dict:
         "season": season,
         "week": shown,
         "week_list": db.weeks(conn) or [(season, shown)],
+        "view": "week",
         "nav": "scoreboard",
         **board,
     }
 
 
+def _season_ctx(conn) -> dict:
+    matchups = db.matchups_for_season(conn, SEASON)
+    board = season_compare(
+        matchups,
+        bookmaker=VEGAS_BOOKMAKER,
+        model_version=MODEL_VERSION,
+        username=USERNAME,
+    )
+    return {
+        "season": SEASON,
+        "week": None,
+        "week_list": db.weeks(conn) or [(SEASON, 1)],
+        "view": "season",
+        "nav": "scoreboard",
+        "bookmaker": VEGAS_BOOKMAKER,
+        **board,
+    }
+
+
 @router.get("/scoreboard", response_class=HTMLResponse)
-def scoreboard_page(request: Request, conn: DbConn, week: int | None = None):
-    ctx = _ctx(conn, week=week)
+def scoreboard_page(
+    request: Request,
+    conn: DbConn,
+    week: int | None = None,
+    view: str = "week",
+):
+    ctx = _season_ctx(conn) if view == "season" else _week_ctx(conn, week=week)
     if is_htmx(request):
-        return templates.TemplateResponse(request, "partials/scoreboard_board.html", ctx)
+        return templates.TemplateResponse(
+            request, "partials/scoreboard_panel.html", ctx
+        )
     return templates.TemplateResponse(request, "scoreboard.html", ctx)

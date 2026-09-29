@@ -15,4 +15,4 @@ def results():
 
 @router.get("/season")
 def season():
-    return RedirectResponse("/scoreboard", status_code=307)
+    return RedirectResponse("/scoreboard?view=season", status_code=307)

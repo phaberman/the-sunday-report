@@ -207,6 +207,23 @@ def matchups_for(session: Session, season: int, week: int) -> list[Matchup]:
     )
 
 
+def matchups_for_season(session: Session, season: int) -> list[Matchup]:
+    return list(
+        session.scalars(
+            select(Matchup)
+            .where(Matchup.season_year == season)
+            .options(selectinload(Matchup.picks))
+            .order_by(
+                Matchup.season_week,
+                Matchup.kickoff.is_(None),
+                Matchup.kickoff,
+                Matchup.away_team,
+                Matchup.home_team,
+            )
+        ).all()
+    )
+
+
 def all_matchups(session: Session) -> list[Matchup]:
     return list(
         session.scalars(

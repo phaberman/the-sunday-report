@@ -205,6 +205,151 @@ def pick_counts(rows: list[dict]) -> dict[str, int]:
     }
 
 
+def _empty_record() -> dict[str, int]:
+    return {"win": 0, "loss": 0, "push": 0, "pending": 0}
+
+
+def record_for_identity(
+    matchups: list[Matchup],
+    *,
+    bookmaker: str,
+    source: str,
+    name: str,
+) -> dict[str, int]:
+    """W-L-P for one model version or user vs the configured Vegas book."""
+    bucket = _empty_record()
+    for m in matchups:
+        by_source = _latest_by_source(list(m.picks))
+        vegas_pick = _fixed_vegas_pick(by_source, bookmaker)
+        vegas_margin = vegas_pick.spread if vegas_pick and not vegas_pick.decision else None
+        actual = actual_margin(m)
+        if source == "model":
+            pick = by_source["model"].get(name)
+        elif source == "user":
+            pick = by_source["user"].get(name)
+        else:
+            continue
+        if pick is None or not pick.decision:
+            continue
+        g = grade_decision(pick.decision, vegas_margin, actual)
+        if g in bucket:
+            bucket[g] += 1
+    return bucket
+
+
+def enrich_record(r: dict[str, int]) -> dict:
+    settled = r["win"] + r["loss"] + r["push"]
+    win_pct = round(100.0 * r["win"] / settled, 1) if settled else None
+    bar = (
+        {
+            "win": round(100.0 * r["win"] / settled, 2),
+            "loss": round(100.0 * r["loss"] / settled, 2),
+            "push": round(100.0 * r["push"] / settled, 2),
+        }
+        if settled
+        else {"win": 0.0, "loss": 0.0, "push": 0.0}
+    )
+    return {
+        **r,
+        "wlp": f'{r["win"]}-{r["loss"]}-{r["push"]}',
+        "settled": settled,
+        "win_pct": win_pct,
+        "bar": bar,
+    }
+
+
+def season_compare(
+    matchups: list[Matchup],
+    *,
+    bookmaker: str,
+    model_version: str,
+    username: str,
+) -> dict:
+    """Season Model vs user ATS records and per-week breakdown."""
+    weeks = sorted({m.season_week for m in matchups})
+    weekly: list[dict] = []
+    cum_model = 0
+    cum_user = 0
+    max_week_wins = 1
+    for w in weeks:
+        wm = [m for m in matchups if m.season_week == w]
+        mr = record_for_identity(
+            wm, bookmaker=bookmaker, source="model", name=model_version
+        )
+        ur = record_for_identity(
+            wm, bookmaker=bookmaker, source="user", name=username
+        )
+        cum_model += mr["win"]
+        cum_user += ur["win"]
+        max_week_wins = max(max_week_wins, mr["win"], ur["win"])
+        weekly.append(
+            {
+                "week": w,
+                "model": enrich_record(mr),
+                "user": enrich_record(ur),
+                "cum_model": cum_model,
+                "cum_user": cum_user,
+            }
+        )
+
+    model_total = enrich_record(
+        record_for_identity(
+            matchups,
+            bookmaker=bookmaker,
+            source="model",
+            name=model_version,
+        )
+    )
+    user_total = enrich_record(
+        record_for_identity(
+            matchups,
+            bookmaker=bookmaker,
+            source="user",
+            name=username,
+        )
+    )
+    leader = None
+    if model_total["settled"] and user_total["settled"]:
+        if model_total["win"] > user_total["win"]:
+            leader = "model"
+        elif user_total["win"] > model_total["win"]:
+            leader = "user"
+
+    chart = _cumulative_chart(weekly)
+    return {
+        "model": model_total,
+        "user": user_total,
+        "model_version": model_version,
+        "username": username,
+        "weekly": weekly,
+        "max_week_wins": max_week_wins,
+        "leader": leader,
+        "chart_points": chart,
+        "chart_model_line": " ".join(f"{p['x']},{p['model_y']}" for p in chart),
+        "chart_user_line": " ".join(f"{p['x']},{p['user_y']}" for p in chart),
+    }
+
+
+def _cumulative_chart(weekly: list[dict]) -> list[dict]:
+    if not weekly:
+        return []
+    last = weekly[-1]
+    max_y = max(last["cum_model"], last["cum_user"], 1)
+    out: list[dict] = []
+    n = len(weekly)
+    for i, row in enumerate(weekly):
+        x = round(100.0 * i / max(n - 1, 1), 2)
+        out.append(
+            {
+                "week": row["week"],
+                "x": x,
+                "model_y": round(100.0 - 100.0 * row["cum_model"] / max_y, 2),
+                "user_y": round(100.0 - 100.0 * row["cum_user"] / max_y, 2),
+            }
+        )
+    return out
+
+
 def tally_decision_records(
     matchups: list[Matchup], *, bookmaker: str
 ) -> dict[str, dict[str, int]]:

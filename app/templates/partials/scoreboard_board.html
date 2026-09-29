@@ -3,7 +3,7 @@
     {% for label, bucket in records.items() %}
     <div class="card">
       <div class="n">{{ bucket.win }}-{{ bucket.loss }}{% if bucket.push %}-{{ bucket.push }}{% endif %}</div>
-      <div class="l">{{ label }} W-L{% if bucket.push %}-P{% endif %}</div>
+      <div class="l">{% if label.startswith('model:') %}Model{% else %}{{ label }}{% endif %} W-L{% if bucket.push %}-P{% endif %}</div>
     </div>
     {% else %}
     <div class="card"><div class="n">—</div><div class="l">No picks yet</div></div>
@@ -16,7 +16,7 @@
         <th>Matchup</th>
         <th>Line</th>
         {% for mv in model_versions %}
-        <th>Model {{ mv }}</th>
+        <th>Model</th>
         <th></th>
         {% endfor %}
         {% for u in usernames %}

@@ -1,0 +1,48 @@
+<div id="scoreboard-panel" class="scoreboard-panel{% if view == 'season' %} season-page{% endif %}">
+{% if view == 'season' %}
+<p class="muted">{{ season }} season · ATS vs {{ bookmaker }} line</p>
+{% else %}
+<p class="muted">{{ season }} · Week {{ week }}</p>
+{% endif %}
+
+<div class="toolbar matchups-toolbar scoreboard-toolbar">
+  <div class="seg seg-mode scoreboard-view" role="radiogroup" aria-label="Scoreboard range">
+    <label class="seg-opt">
+      <input type="radio" name="sb_view" value="week"
+        {% if view == 'week' %}checked{% endif %}
+        hx-get="/scoreboard?view=week&amp;week={{ week }}"
+        hx-target="#scoreboard-panel"
+        hx-swap="outerHTML">
+      <span>Week</span>
+    </label>
+    <label class="seg-opt">
+      <input type="radio" name="sb_view" value="season"
+        {% if view == 'season' %}checked{% endif %}
+        hx-get="/scoreboard?view=season"
+        hx-target="#scoreboard-panel"
+        hx-swap="outerHTML">
+      <span>Season</span>
+    </label>
+  </div>
+  {% if view == 'week' %}
+  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
+    {% for s, w in week_list %}
+    <label class="chip">
+      <input type="radio" name="week" value="{{ w }}"
+        {% if w == week %}checked{% endif %}
+        hx-get="/scoreboard?view=week&amp;week={{ w }}"
+        hx-target="#scoreboard-panel"
+        hx-swap="outerHTML">
+      <span>{{ w }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if view == 'season' %}
+{% include "partials/scoreboard_season.html" %}
+{% else %}
+{% include "partials/scoreboard_board.html" %}
+{% endif %}
+</div>
