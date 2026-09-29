@@ -41,6 +41,7 @@ def _week_ctx(conn, *, week: int | None) -> dict:
 
 
 def _season_ctx(conn) -> dict:
+    _, shown = _pick_week(conn, None)
     matchups = db.matchups_for_season(conn, SEASON)
     board = season_compare(
         matchups,
@@ -50,8 +51,8 @@ def _season_ctx(conn) -> dict:
     )
     return {
         "season": SEASON,
-        "week": None,
-        "week_list": db.weeks(conn) or [(SEASON, 1)],
+        "week": shown,
+        "week_list": db.weeks(conn) or [(SEASON, shown)],
         "view": "season",
         "nav": "scoreboard",
         "bookmaker": VEGAS_BOOKMAKER,

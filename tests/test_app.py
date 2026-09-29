@@ -302,6 +302,24 @@ def test_scoreboard_htmx_returns_board_fragment():
         assert 'id="board"' in r.text
         assert "<html" not in r.text.lower()
 
+        r = client.get(
+            "/scoreboard",
+            params={"view": "season"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+        assert "Season record mix" in r.text
+        assert 'hx-get="/scoreboard?view=week&amp;week=' in r.text
+        assert "week=&amp;" not in r.text
+
+        r = client.get(
+            "/scoreboard",
+            params={"view": "week", "week": 1},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+        assert "matchups-weeks" in r.text
+
 
 def test_upload_page_defaults_to_enter_spreads():
     with TestClient(app) as client:
