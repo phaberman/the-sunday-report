@@ -32,6 +32,10 @@ def init(session: Session | None = None) -> Session:
     if cols and "bookmaker" not in cols:
         s.execute(text("ALTER TABLE picks ADD COLUMN bookmaker TEXT"))
         s.commit()
+    cols = {row[1] for row in s.execute(text("PRAGMA table_info(picks)"))}
+    if cols and "decision" not in cols:
+        s.execute(text("ALTER TABLE picks ADD COLUMN decision TEXT"))
+        s.commit()
     return s
 
 
@@ -77,6 +81,7 @@ def pick_exists(
     matchup_id: str,
     source: str,
     spread: float,
+    decision: str | None,
     username: str | None,
     model_version: str | None,
     bookmaker: str | None,
@@ -85,6 +90,7 @@ def pick_exists(
         Pick.matchup_id == matchup_id,
         Pick.source == source,
         Pick.spread == spread,
+        Pick.decision.is_(decision) if decision is None else Pick.decision == decision,
         Pick.username.is_(username) if username is None else Pick.username == username,
         Pick.model_version.is_(model_version)
         if model_version is None
@@ -135,6 +141,7 @@ def add_pick(
     matchup: Matchup,
     spread: float,
     source: str,
+    decision: str | None = None,
     username: str | None = None,
     model_version: str | None = None,
     bookmaker: str | None = None,
@@ -145,6 +152,7 @@ def add_pick(
         matchup_id=matchup.id,
         source=source,
         spread=spread,
+        decision=decision,
         username=username,
         model_version=model_version,
         bookmaker=bookmaker,
@@ -153,6 +161,7 @@ def add_pick(
     pick = Pick(
         matchup_id=matchup.id,
         spread=spread,
+        decision=decision,
         source=source,
         username=username,
         model_version=model_version,

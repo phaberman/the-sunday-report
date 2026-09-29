@@ -7,8 +7,12 @@
       <thead>
         <tr>
           <th>Matchup</th>
+          {% if entry_source == "vegas" %}
           <th>Favorite</th>
           <th>Points</th>
+          {% else %}
+          <th>Pick</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -20,6 +24,7 @@
             <input type="hidden" name="home_{{ r.id }}" value="{{ r.home_team }}">
           </td>
           {% if r.locked %}
+          {% if entry_source == "vegas" %}
           <td>
             <div class="chip-row fav-row fav-display" aria-label="Favorite {{ r.game }}">
               <span class="chip fav-chip{% if r.locked_favorite == r.away_team %} fav-active{% endif %}"><span>{{ r.away_team }}</span></span>
@@ -30,6 +35,9 @@
             <span class="mono">{{ r.locked_spread }}</span>
           </td>
           {% else %}
+          <td><span class="mono">{{ r.locked_decision }}</span></td>
+          {% endif %}
+          {% elif entry_source == "vegas" %}
           <td>
             <div
               class="chip-row fav-row fav-display"
@@ -51,12 +59,29 @@
               inputmode="decimal"
             >
           </td>
+          {% else %}
+          <td>
+            <div class="chip-row" role="radiogroup" aria-label="Decision {{ r.game }}">
+              <label class="chip">
+                <input type="radio" name="decision_{{ r.id }}" value="cover">
+                <span>Cover</span>
+              </label>
+              <label class="chip">
+                <input type="radio" name="decision_{{ r.id }}" value="points">
+                <span>Points</span>
+              </label>
+            </div>
+          </td>
           {% endif %}
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <p class="muted enter-hint">Points: positive = home favored, negative = away favored. Blank rows are skipped. Logged rows can’t be changed for this source.</p>
+  {% if entry_source == "vegas" %}
+  <p class="muted enter-hint">Points: positive = home favored, negative = away favored. Blank rows are skipped.</p>
+  {% else %}
+  <p class="muted enter-hint">Cover = favorite ATS · Points = underdog. Blank rows are skipped.</p>
+  {% endif %}
   {% endif %}
 </div>

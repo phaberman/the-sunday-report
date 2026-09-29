@@ -9,11 +9,16 @@ from pathlib import Path
 from app.db import ROOT, add_pick, latest_identity_pick, upsert_matchup
 from app.spreads import (
     favorite_and_line,
+    format_decision,
     format_spread,
     is_numeric_margin,
+    norm_decision,
     norm_team,
     to_home_margin,
 )
+
+# ponytail: decision picks use spread=0 in SQLite; grading uses decision + vegas line only.
+DECISION_SPREAD = 0.0
 
 PICKS_DIR = ROOT / "data" / "picks"
 SOURCES = frozenset({"vegas", "user", "model"})
@@ -63,6 +68,14 @@ def parse_upload(filename: str, data: bytes) -> list[dict]:
     if name.endswith(".xlsx") or name.endswith(".xls"):
         return _rows_from_xlsx(data)
     return _rows_from_csv(data.decode("utf-8-sig"))
+
+
+def _decision_text(row: dict) -> str:
+    row = _norm_row(row)
+    val = row.get("decision", "")
+    if not val:
+        raise ValueError(f"missing decision in {list(row)}")
+    return norm_decision(val)
 
 
 def _spread_text(row: dict) -> str:
@@ -123,19 +136,32 @@ def ingest_rows(
         home = norm_team(row.get("home_team") or row.get("home") or "")
         if not away or not home:
             raise ValueError(f"missing teams in {row}")
-        margin = to_home_margin(away, home, _spread_text(row))
         matchup = upsert_matchup(
             session, season=season, week=week, away_team=away, home_team=home
         )
-        pick = add_pick(
-            session,
-            matchup=matchup,
-            spread=margin,
-            source=source,
-            username=username,
-            model_version=model_version,
-            bookmaker=bookmaker,
-        )
+        if source == "vegas":
+            margin = to_home_margin(away, home, _spread_text(row))
+            pick = add_pick(
+                session,
+                matchup=matchup,
+                spread=margin,
+                source=source,
+                username=username,
+                model_version=model_version,
+                bookmaker=bookmaker,
+            )
+        else:
+            decision = _decision_text(row)
+            pick = add_pick(
+                session,
+                matchup=matchup,
+                spread=DECISION_SPREAD,
+                decision=decision,
+                source=source,
+                username=username,
+                model_version=model_version,
+                bookmaker=bookmaker,
+            )
         if pick is None:
             skipped += 1
         else:
@@ -155,9 +181,10 @@ def ingest_entries(
     model_version: str | None = None,
     bookmaker: str | None = None,
 ) -> tuple[int, int, int]:
-    """Insert picks from UI rows {away, home, points}.
+    """Insert picks from UI rows.
 
-    Signed points: positive = home favored, negative = away favored, 0 = PK.
+    Vegas: {away, home, points} signed spread.
+    Model/user: {away, home, decision} cover|points.
 
     Returns (inserted, skipped_blank_or_locked, skipped_dups).
     Locked = identity already has a pick for that matchup.
@@ -170,22 +197,8 @@ def ingest_entries(
     for entry in entries:
         away = norm_team(entry.get("away_team") or "")
         home = norm_team(entry.get("home_team") or "")
-        pts_raw = (entry.get("points") or "").strip()
-        if not pts_raw:
-            skipped += 1
-            continue
         if not away or not home:
             raise ValueError(f"missing teams in {entry}")
-        try:
-            signed = float(pts_raw)
-        except ValueError as e:
-            raise ValueError(f"bad points: {pts_raw!r}") from e
-        if signed > 0:
-            margin = to_home_margin(away, home, f"{home} -{signed:g}")
-        elif signed < 0:
-            margin = to_home_margin(away, home, f"{away} -{abs(signed):g}")
-        else:
-            margin = 0.0
         matchup = upsert_matchup(
             session, season=season, week=week, away_team=away, home_team=home
         )
@@ -200,15 +213,46 @@ def ingest_entries(
         if prior is not None:
             skipped += 1
             continue
-        pick = add_pick(
-            session,
-            matchup=matchup,
-            spread=margin,
-            source=source,
-            username=username,
-            model_version=model_version,
-            bookmaker=bookmaker,
-        )
+        if source == "vegas":
+            pts_raw = (entry.get("points") or "").strip()
+            if not pts_raw:
+                skipped += 1
+                continue
+            try:
+                signed = float(pts_raw)
+            except ValueError as e:
+                raise ValueError(f"bad points: {pts_raw!r}") from e
+            if signed > 0:
+                margin = to_home_margin(away, home, f"{home} -{signed:g}")
+            elif signed < 0:
+                margin = to_home_margin(away, home, f"{away} -{abs(signed):g}")
+            else:
+                margin = 0.0
+            pick = add_pick(
+                session,
+                matchup=matchup,
+                spread=margin,
+                source=source,
+                username=username,
+                model_version=model_version,
+                bookmaker=bookmaker,
+            )
+        else:
+            dec_raw = (entry.get("decision") or "").strip()
+            if not dec_raw:
+                skipped += 1
+                continue
+            decision = norm_decision(dec_raw)
+            pick = add_pick(
+                session,
+                matchup=matchup,
+                spread=DECISION_SPREAD,
+                decision=decision,
+                source=source,
+                username=username,
+                model_version=model_version,
+                bookmaker=bookmaker,
+            )
         if pick is None:
             dups += 1
         else:
@@ -256,11 +300,15 @@ def entry_rows_for(
         locked_favorite = ""
         locked_points = ""
         locked_spread = ""
+        locked_decision = ""
         if prior:
-            locked_favorite, locked_points = favorite_and_line(
-                m.away_team, m.home_team, prior.spread
-            )
-            locked_spread = format_spread(m.away_team, m.home_team, prior.spread)
+            if prior.decision:
+                locked_decision = format_decision(prior.decision)
+            else:
+                locked_favorite, locked_points = favorite_and_line(
+                    m.away_team, m.home_team, prior.spread
+                )
+                locked_spread = format_spread(m.away_team, m.home_team, prior.spread)
         rows.append(
             {
                 "id": m.id,
@@ -271,19 +319,57 @@ def entry_rows_for(
                 "locked_favorite": locked_favorite,
                 "locked_points": locked_points,
                 "locked_spread": locked_spread,
+                "locked_decision": locked_decision,
             }
         )
     return rows
 
 
 def seed_week01(session) -> tuple[int, int]:
-    path = PICKS_DIR / "week_01.csv"
+    path = PICKS_DIR / "202601_model.csv"
     if not path.is_file():
         return 0, 0
     rows = parse_upload(path.name, path.read_bytes())
     return ingest_rows(
         session, rows, season=2026, week=1, source="model", model_version="preseason"
     )
+
+
+def ingest_decisions_from_dir(session, season: int = 2026) -> dict[str, int]:
+    """Load data/picks/2026{week:02d}_{brett|model}.csv decision columns."""
+    totals = {"model": 0, "user": 0, "skipped": 0}
+    for path in sorted(PICKS_DIR.glob(f"{season}??_*.csv")):
+        parts = path.stem.split("_")
+        if len(parts) < 2:
+            continue
+        week_chunk = parts[0]
+        if len(week_chunk) != 6 or not week_chunk.startswith(str(season)):
+            continue
+        week = int(week_chunk[4:6])
+        kind = parts[1].lower()
+        if kind == "model":
+            inserted, skipped = ingest_rows(
+                session,
+                parse_upload(path.name, path.read_bytes()),
+                season=season,
+                week=week,
+                source="model",
+                model_version="preseason",
+            )
+            totals["model"] += inserted
+            totals["skipped"] += skipped
+        elif kind == "brett":
+            inserted, skipped = ingest_rows(
+                session,
+                parse_upload(path.name, path.read_bytes()),
+                season=season,
+                week=week,
+                source="user",
+                username="Brett",
+            )
+            totals["user"] += inserted
+            totals["skipped"] += skipped
+    return totals
 
 
 def ensure_schedule(session, season: int | None = None) -> dict[str, int]:

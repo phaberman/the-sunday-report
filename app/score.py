@@ -1,10 +1,16 @@
-"""Attach closer / ATS to matchup + picks for templates."""
+"""Boards, scoreboard grading, and pick display."""
 
 from __future__ import annotations
 
 from app.models import Matchup, Pick
 from app.odds import format_kickoff
-from app.spreads import ats, closer, explain_spread, format_spread
+from app.spreads import (
+    explain_spread,
+    format_decision,
+    format_grade,
+    format_spread,
+    grade_decision,
+)
 
 
 def actual_margin(m: Matchup) -> float | None:
@@ -24,7 +30,6 @@ def pick_label(p: Pick) -> str:
 
 
 def primary_vegas(by_label: dict[str, Pick]) -> Pick | None:
-    """Prefer DraftKings; otherwise any vegas:* pick."""
     if "vegas:DraftKings" in by_label:
         return by_label["vegas:DraftKings"]
     for label, pick in by_label.items():
@@ -34,7 +39,6 @@ def primary_vegas(by_label: dict[str, Pick]) -> Pick | None:
 
 
 def latest_picks(picks: list[Pick]) -> dict[str, Pick]:
-    """Latest pick per label (by created_at, then id)."""
     best: dict[str, Pick] = {}
     for p in picks:
         label = pick_label(p)
@@ -45,7 +49,6 @@ def latest_picks(picks: list[Pick]) -> dict[str, Pick]:
 
 
 def _latest_by_source(picks: list[Pick]) -> dict[str, dict[str, Pick]]:
-    """Latest pick per source bucket (vegas/model/user) and identity name."""
     out: dict[str, dict[str, Pick]] = {"vegas": {}, "model": {}, "user": {}}
     for p in picks:
         if p.source == "vegas":
@@ -70,10 +73,95 @@ def _fixed_vegas_pick(by_source: dict[str, dict[str, Pick]], bookmaker: str) -> 
     return primary_vegas(by_label)
 
 
-def _spread_cell(m: Matchup, pick: Pick | None) -> str | None:
-    if pick is None:
-        return None
-    return format_spread(m.away_team, m.home_team, pick.spread)
+def week_identities(matchups: list[Matchup]) -> tuple[list[str], list[str]]:
+    models: set[str] = set()
+    users: set[str] = set()
+    for m in matchups:
+        for p in m.picks:
+            if p.source == "model" and p.model_version and p.decision:
+                models.add(p.model_version)
+            elif p.source == "user" and p.username and p.decision:
+                users.add(p.username)
+    return sorted(models), sorted(users)
+
+
+def _grade_pick(
+    pick: Pick | None, vegas_margin: float | None, actual: float | None
+) -> str:
+    if pick is None or not pick.decision:
+        return "pending"
+    return grade_decision(pick.decision, vegas_margin, actual)
+
+
+def _matchup_row(
+    m: Matchup,
+    *,
+    bookmaker: str,
+    model_versions: list[str],
+    usernames: list[str],
+) -> dict:
+    by_source = _latest_by_source(list(m.picks))
+    vegas_pick = _fixed_vegas_pick(by_source, bookmaker)
+    vegas_margin = vegas_pick.spread if vegas_pick and not vegas_pick.decision else None
+    actual = actual_margin(m)
+    played = m.away_score is not None and m.home_score is not None
+
+    models: dict[str, str] = {}
+    model_grades: dict[str, str] = {}
+    for ver in model_versions:
+        pick = by_source["model"].get(ver)
+        models[ver] = format_decision(pick.decision) if pick and pick.decision else ""
+        model_grades[ver] = format_grade(_grade_pick(pick, vegas_margin, actual))
+
+    users: dict[str, str] = {}
+    user_grades: dict[str, str] = {}
+    for name in usernames:
+        pick = by_source["user"].get(name)
+        users[name] = format_decision(pick.decision) if pick and pick.decision else ""
+        user_grades[name] = format_grade(_grade_pick(pick, vegas_margin, actual))
+
+    return {
+        "matchup": f"{m.away_team} @ {m.home_team}",
+        "kickoff": format_kickoff(m.kickoff),
+        "away_points": m.away_score if played else None,
+        "home_points": m.home_score if played else None,
+        "vegas": format_spread(m.away_team, m.home_team, vegas_margin),
+        "models": models,
+        "model_grades": model_grades,
+        "users": users,
+        "user_grades": user_grades,
+    }
+
+
+def scoreboard_board(
+    matchups: list[Matchup],
+    *,
+    bookmaker: str,
+    default_model: str,
+    default_user: str,
+) -> dict:
+    model_versions, usernames = week_identities(matchups)
+    if not model_versions:
+        model_versions = [default_model]
+    if not usernames:
+        usernames = [default_user]
+
+    rows = [
+        _matchup_row(
+            m,
+            bookmaker=bookmaker,
+            model_versions=model_versions,
+            usernames=usernames,
+        )
+        for m in matchups
+    ]
+    records = tally_decision_records(matchups, bookmaker=bookmaker)
+    return {
+        "rows": rows,
+        "model_versions": model_versions,
+        "usernames": usernames,
+        "records": records,
+    }
 
 
 def matchups_board(
@@ -83,23 +171,28 @@ def matchups_board(
     model_version: str,
     username: str,
 ) -> dict:
-    """Flat matchup rows with fixed Vegas / Model / User prediction columns."""
-    rows: list[dict] = []
-    for m in matchups:
-        by_source = _latest_by_source(list(m.picks))
-        played = m.away_score is not None and m.home_score is not None
+    data = scoreboard_board(
+        matchups,
+        bookmaker=bookmaker,
+        default_model=model_version,
+        default_user=username,
+    )
+    rows = []
+    for r in data["rows"]:
         rows.append(
             {
-                "matchup": f"{m.away_team} @ {m.home_team}",
-                "kickoff": format_kickoff(m.kickoff),
-                "away_points": m.away_score if played else None,
-                "home_points": m.home_score if played else None,
-                "vegas": _spread_cell(m, _fixed_vegas_pick(by_source, bookmaker)),
-                "model": _spread_cell(m, by_source["model"].get(model_version)),
-                "user": _spread_cell(m, by_source["user"].get(username)),
+                "matchup": r["matchup"],
+                "kickoff": r["kickoff"],
+                "away_points": r["away_points"],
+                "home_points": r["home_points"],
+                "vegas": r["vegas"],
+                "model": r["models"].get(model_version, ""),
+                "model_grade": r["model_grades"].get(model_version, "—"),
+                "user": r["users"].get(username, ""),
+                "user_grade": r["user_grades"].get(username, "—"),
             }
         )
-    return {"rows": rows, "user_col": username}
+    return {"rows": rows, "user_col": username, "model_version": model_version}
 
 
 def pick_counts(rows: list[dict]) -> dict[str, int]:
@@ -112,19 +205,35 @@ def pick_counts(rows: list[dict]) -> dict[str, int]:
     }
 
 
+def tally_decision_records(
+    matchups: list[Matchup], *, bookmaker: str
+) -> dict[str, dict[str, int]]:
+    """Per identity W-L-P across matchups."""
+    out: dict[str, dict[str, int]] = {}
+    for m in matchups:
+        by_source = _latest_by_source(list(m.picks))
+        vegas_pick = _fixed_vegas_pick(by_source, bookmaker)
+        vegas_margin = vegas_pick.spread if vegas_pick and not vegas_pick.decision else None
+        actual = actual_margin(m)
+        for pick in list(by_source["model"].values()) + list(by_source["user"].values()):
+            if not pick.decision:
+                continue
+            label = pick_label(pick)
+            bucket = out.setdefault(label, {"win": 0, "loss": 0, "push": 0, "pending": 0})
+            g = grade_decision(pick.decision, vegas_margin, actual)
+            if g in bucket:
+                bucket[g] += 1
+    return out
+
+
 def view_matchup(m: Matchup) -> dict:
-    actual = actual_margin(m)
+    """Spreads page row (Vegas line + actual)."""
     by_label = latest_picks(list(m.picks))
     vegas_pick = primary_vegas(by_label)
     vegas_margin = vegas_pick.spread if vegas_pick else None
+    actual = actual_margin(m)
 
-    spreads = {
-        label: format_spread(m.away_team, m.home_team, p.spread)
-        for label, p in sorted(by_label.items())
-    }
-    margins = {label: p.spread for label, p in by_label.items()}
-
-    out: dict = {
+    return {
         "id": m.id,
         "away_team": m.away_team,
         "home_team": m.home_team,
@@ -133,58 +242,9 @@ def view_matchup(m: Matchup) -> dict:
         "index": m.id,
         "vegas": format_spread(m.away_team, m.home_team, vegas_margin),
         "vegas_hint": explain_spread(m.away_team, m.home_team, vegas_margin),
-        "spreads": spreads,
-        "labels": list(spreads.keys()),
         "actual": format_spread(m.away_team, m.home_team, actual),
         "home_score": m.home_score,
         "away_score": m.away_score,
-        "closer": "",
-        "ats": {},
+        "date": "",
     }
 
-    if actual is not None and len(margins) >= 1:
-        out["closer"] = closer(margins, actual)
-
-    if vegas_margin is not None and actual is not None:
-        ats_map = {}
-        for label, margin in margins.items():
-            if label.startswith("vegas:"):
-                continue
-            ats_map[label] = ats(margin, vegas_margin, actual)
-        out["ats"] = ats_map
-
-    return out
-
-
-def tally(rows: list[dict], key: str, values: tuple[str, ...]) -> dict[str, int]:
-    counts = {v: 0 for v in values}
-    for r in rows:
-        v = r.get(key) or ""
-        if v in counts:
-            counts[v] += 1
-    return counts
-
-
-def tally_closer(rows: list[dict]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for r in rows:
-        c = r.get("closer") or ""
-        if not c or c == "tie":
-            if c == "tie":
-                counts["tie"] = counts.get("tie", 0) + 1
-            continue
-        counts[c] = counts.get(c, 0) + 1
-    return counts
-
-
-def tally_ats(rows: list[dict]) -> dict[str, dict[str, int]]:
-    """Per-label ATS totals across games."""
-    out: dict[str, dict[str, int]] = {}
-    for r in rows:
-        for label, result in (r.get("ats") or {}).items():
-            bucket = out.setdefault(
-                label, {"cover": 0, "loss": 0, "push": 0, "no_bet": 0}
-            )
-            if result in bucket:
-                bucket[result] += 1
-    return out

@@ -121,3 +121,72 @@ def ats(pick: float, vegas: float, actual: float) -> str:
     bet_home = pick > vegas
     covered = actual > vegas if bet_home else actual < vegas
     return "cover" if covered else "loss"
+
+
+DECISIONS = frozenset({"cover", "points"})
+
+
+def norm_decision(text: str) -> str:
+    d = (text or "").strip().lower()
+    if d in DECISIONS:
+        return d
+    raise ValueError(f"decision must be cover or points, got {text!r}")
+
+
+def format_decision(decision: str | None) -> str:
+    if not decision:
+        return ""
+    d = decision.lower()
+    if d == "cover":
+        return "Cover"
+    if d == "points":
+        return "Points"
+    return decision
+
+
+def favorite_covers(vegas_margin: float, actual_margin: float) -> bool:
+    """True when the favorite covers the Vegas spread."""
+    if abs(vegas_margin) < 1e-9:
+        return actual_margin > 0
+    if vegas_margin > 0:
+        return actual_margin > vegas_margin
+    return actual_margin < vegas_margin
+
+
+def grade_decision(
+    decision: str | None,
+    vegas_margin: float | None,
+    actual_margin: float | None,
+) -> str:
+    """cover = favorite ATS, points = underdog ATS. PK → cover=home, points=away."""
+    if not decision or vegas_margin is None or actual_margin is None:
+        return "pending"
+    d = norm_decision(decision)
+    if abs(actual_margin - vegas_margin) < 1e-9:
+        return "push"
+    if abs(vegas_margin) < 1e-9:
+        if d == "cover":
+            if actual_margin > 0:
+                return "win"
+            if actual_margin < 0:
+                return "loss"
+            return "push"
+        if actual_margin < 0:
+            return "win"
+        if actual_margin > 0:
+            return "loss"
+        return "push"
+    fav = favorite_covers(vegas_margin, actual_margin)
+    if d == "cover":
+        return "win" if fav else "loss"
+    return "win" if not fav else "loss"
+
+
+def format_grade(result: str) -> str:
+    if result == "win":
+        return "W"
+    if result == "loss":
+        return "L"
+    if result == "push":
+        return "P"
+    return "—"

@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import db, ingest
 from app.deps import APP_DIR
-from app.routers import matchups, scores, spreads, upload, week
+from app.routers import matchups, scoreboard, scores, spreads, upload, week
 
 
 @asynccontextmanager
@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 app.include_router(week.router)
+app.include_router(scoreboard.router)
 app.include_router(matchups.router)
 app.include_router(spreads.router)
 app.include_router(scores.router)

@@ -54,6 +54,10 @@ h1 {
   font-size: 13px;
   font-weight: 600;
 }
+.tabs-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 440px;
+}
 .tabs a {
   color: rgba(255, 255, 255, 0.78);
   text-decoration: none;
@@ -84,6 +88,10 @@ h1 {
 }
 .card .n { font-size: 28px; color: var(--navy); font-weight: 650; }
 .card .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.grade { font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
+.grade-W { color: #0d7a3a; }
+.grade-L { color: var(--red); }
+.grade-P { color: var(--muted); }
 .table-card {
   background: var(--card);
   border: 1px solid var(--line);

@@ -7,9 +7,11 @@
         <th>Kickoff</th>
         <th>Away Pts</th>
         <th>Home Pts</th>
-        <th>Vegas</th>
+        <th>Line</th>
         <th>Model</th>
+        <th></th>
         <th>{{ user_col }}</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -20,8 +22,10 @@
         <td>{{ r.away_points if r.away_points is not none else "—" }}</td>
         <td>{{ r.home_points if r.home_points is not none else "—" }}</td>
         <td class="spread">{{ r.vegas or "—" }}</td>
-        <td class="spread">{{ r.model or "—" }}</td>
-        <td class="spread">{{ r.user or "—" }}</td>
+        <td>{{ r.model or "—" }}</td>
+        <td class="grade grade-{{ r.model_grade }}">{{ r.model_grade }}</td>
+        <td>{{ r.user or "—" }}</td>
+        <td class="grade grade-{{ r.user_grade }}">{{ r.user_grade }}</td>
       </tr>
       {% else %}
       <tr><td colspan="7">No matchups for this week.</td></tr>

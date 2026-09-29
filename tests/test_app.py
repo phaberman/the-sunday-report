@@ -12,8 +12,8 @@ def test_html_pages_render():
     with TestClient(app) as client:
         r = client.get("/", follow_redirects=False)
         assert r.status_code == 303
-        assert r.headers["location"] == "/matchups"
-        for path in ("/matchups", "/spreads", "/upload"):
+        assert r.headers["location"] == "/scoreboard"
+        for path in ("/scoreboard", "/matchups", "/spreads", "/upload"):
             r = client.get(path)
             assert r.status_code == 200, path
             assert "The Sunday Report" in r.text
@@ -57,7 +57,8 @@ def test_matchups_board_with_picks(tmp_path: Path):
     session.add(
         Pick(
             matchup_id=m.id,
-            spread=3.0,
+            spread=0.0,
+            decision="cover",
             source="model",
             model_version=MODEL_VERSION,
         )
@@ -65,7 +66,8 @@ def test_matchups_board_with_picks(tmp_path: Path):
     session.add(
         Pick(
             matchup_id=m.id,
-            spread=2.5,
+            spread=0.0,
+            decision="points",
             source="user",
             username=USERNAME,
         )
@@ -82,14 +84,14 @@ def test_matchups_board_with_picks(tmp_path: Path):
     row = board["rows"][0]
     assert row["matchup"] == "NE @ SEA"
     assert row["vegas"] == "SEA -3.5"
-    assert row["model"] == "SEA -3"
-    assert row["user"] == "SEA -2.5"
+    assert row["model"] == "Cover"
+    assert row["user"] == "Points"
 
     with TestClient(app) as client:
         r = client.get("/matchups")
         assert r.status_code == 200
         assert "Matchup" in r.text
-        assert "Vegas" in r.text
+        assert "Line" in r.text
         assert USERNAME in r.text
         assert "Diff" not in r.text
 
@@ -211,11 +213,11 @@ def test_matchups_rows(tmp_path: Path):
     sea = next(r for r in rows if r["matchup"] == "NE @ SEA")
     assert sea["away_points"] == 10
     assert sea["home_points"] == 13
-    assert sea["vegas"] is None
+    assert not sea["vegas"]
     chi = next(r for r in rows if r["matchup"] == "CHI @ CAR")
     assert chi["away_points"] is None
-    assert chi["vegas"] is None
-    assert chi["model"] is None
+    assert not chi["vegas"]
+    assert not chi["model"]
 
 
 def test_refresh_schedule_upsert_no_dups(tmp_path: Path):
@@ -285,9 +287,9 @@ def test_load_schedule_from_db(tmp_path: Path):
     assert current_week(sched, today=date(2026, 9, 15)) == (2026, 2)
 
 
-def test_results_htmx_returns_board_fragment():
+def test_scoreboard_htmx_returns_board_fragment():
     with TestClient(app) as client:
-        r = client.get("/results", headers={"HX-Request": "true"})
+        r = client.get("/scoreboard", headers={"HX-Request": "true"})
         assert r.status_code == 200
         assert 'id="board"' in r.text
         assert "<html" not in r.text.lower()
@@ -299,9 +301,8 @@ def test_upload_page_defaults_to_enter_spreads():
         assert r.status_code == 200
         assert "Enter spreads" in r.text
         assert 'id="mode-enter"' in r.text
-        assert "away_team · home_team · spread" in r.text
-        assert ">3.5<" in r.text
-        assert "team line" in r.text
+        assert "away_team" in r.text
+        assert "decision" in r.text
 
 
 def test_upload_entries_empty_week():
@@ -378,11 +379,11 @@ def test_ingest_entries_and_lock(tmp_path: Path):
     assert sea["locked_points"] == "3.5"
 
 
-def test_ingest_entries_signed_points(tmp_path: Path):
+def test_ingest_entries_decision(tmp_path: Path):
     session = db.init(db.connect(tmp_path / "signed.db"))
     inserted, skipped, dups = ingest.ingest_entries(
         session,
-        [{"away_team": "DET", "home_team": "BUF", "points": "-3"}],
+        [{"away_team": "DET", "home_team": "BUF", "decision": "points"}],
         season=2026,
         week=2,
         source="user",
@@ -394,4 +395,4 @@ def test_ingest_entries_signed_points(tmp_path: Path):
     mid = matchup_id(2026, 2, "BUF", "DET")
     pick = db.latest_identity_pick(session, matchup_id=mid, source="user", username="Brett")
     assert pick is not None
-    assert pick.spread == -3.0
+    assert pick.decision == "points"

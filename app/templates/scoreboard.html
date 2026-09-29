@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app-page">
+<p class="muted">{{ season }} · Week {{ week }}</p>
+
+<div class="toolbar matchups-toolbar">
+  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
+    {% for s, w in week_list %}
+    <label class="chip">
+      <input type="radio" name="week" value="{{ w }}"
+        {% if w == week %}checked{% endif %}
+        hx-get="/scoreboard"
+        hx-target="#board"
+        hx-swap="outerHTML">
+      <span>{{ w }}</span>
+    </label>
+    {% endfor %}
+  </div>
+</div>
+
+{% include "partials/scoreboard_board.html" %}
+</div>
+{% endblock %}

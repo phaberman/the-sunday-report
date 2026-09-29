@@ -1,0 +1,52 @@
+<div id="board">
+  <div class="cards">
+    {% for label, bucket in records.items() %}
+    <div class="card">
+      <div class="n">{{ bucket.win }}-{{ bucket.loss }}{% if bucket.push %}-{{ bucket.push }}{% endif %}</div>
+      <div class="l">{{ label }} W-L{% if bucket.push %}-P{% endif %}</div>
+    </div>
+    {% else %}
+    <div class="card"><div class="n">—</div><div class="l">No picks yet</div></div>
+    {% endfor %}
+  </div>
+  <div class="table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>Matchup</th>
+        <th>Line</th>
+        {% for mv in model_versions %}
+        <th>Model {{ mv }}</th>
+        <th></th>
+        {% endfor %}
+        {% for u in usernames %}
+        <th>{{ u }}</th>
+        <th></th>
+        {% endfor %}
+        <th>Away</th>
+        <th>Home</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.matchup }}</td>
+        <td class="spread">{{ r.vegas or "—" }}</td>
+        {% for mv in model_versions %}
+        <td>{{ r.models.get(mv, "—") }}</td>
+        <td class="grade grade-{{ r.model_grades.get(mv, '—') }}">{{ r.model_grades.get(mv, "—") }}</td>
+        {% endfor %}
+        {% for u in usernames %}
+        <td>{{ r.users.get(u, "—") }}</td>
+        <td class="grade grade-{{ r.user_grades.get(u, '—') }}">{{ r.user_grades.get(u, "—") }}</td>
+        {% endfor %}
+        <td>{{ r.away_points if r.away_points is not none else "—" }}</td>
+        <td>{{ r.home_points if r.home_points is not none else "—" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="99">No games.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

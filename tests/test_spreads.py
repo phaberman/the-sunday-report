@@ -2,7 +2,15 @@ from pathlib import Path
 
 from app import db, ingest
 from app.models import matchup_id
-from app.spreads import ats, closer, explain_spread, favorite_and_line, format_spread, to_home_margin
+from app.spreads import (
+    ats,
+    closer,
+    explain_spread,
+    favorite_and_line,
+    format_spread,
+    grade_decision,
+    to_home_margin,
+)
 
 
 def test_favorite_and_line():
@@ -56,9 +64,19 @@ def test_spread_text_prefers_signed_spread_line():
     assert to_home_margin("BAL", "IND", ingest._spread_text(row)) == -3.5
 
 
+def test_grade_decision_cover_points():
+    # GB -5.5 at home vs ATL: dog covers when home margin < 5.5
+    assert grade_decision("cover", 5.5, 3.0) == "loss"
+    assert grade_decision("points", 5.5, 3.0) == "win"
+    assert grade_decision("cover", 5.5, 5.5) == "push"
+    # PK: cover = home
+    assert grade_decision("cover", 0.0, 7.0) == "win"
+    assert grade_decision("points", 0.0, 7.0) == "loss"
+
+
 def test_ingest_and_dups(tmp_path: Path):
     session = db.init(db.connect(tmp_path / "t.db"))
-    path = db.ROOT / "data" / "picks" / "2026_01_preseason_model.csv"
+    path = db.ROOT / "data" / "picks" / "202601_model.csv"
     rows = ingest.parse_upload(path.name, path.read_bytes())
     inserted, skipped = ingest.ingest_rows(
         session, rows, season=2026, week=1, source="model", model_version="preseason"
@@ -68,7 +86,7 @@ def test_ingest_and_dups(tmp_path: Path):
     m = next(x for x in db.matchups_for(session, 2026, 1) if x.home_team == "SEA")
     assert m.id == "2026_01_sea_ne"
     assert m.away_team == "NE"
-    assert any(p.spread == 3.5 and p.source == "model" for p in m.picks)
+    assert any(p.decision == "cover" and p.source == "model" for p in m.picks)
 
     inserted2, skipped2 = ingest.ingest_rows(
         session, rows, season=2026, week=1, source="model", model_version="preseason"

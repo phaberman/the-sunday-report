@@ -27,11 +27,20 @@ First launch creates `data/sunday.db`, loads the schedule into `matchups`, and c
 ## Data model
 
 - **matchups** — one row per game (`id` = `2026_02_sea_ne`, kickoff, scores)
-- **picks** — opinions linked by `matchup_id`: numeric home-margin `spread`, `source` (`vegas` | `user` | `model`), optional `username` / `model_version`, `created_at`
+- **picks** — linked by `matchup_id`: `source` (`vegas` | `user` | `model`). Vegas stores home-margin `spread`. Model/user store `decision` (`cover` = favorite ATS, `points` = underdog). Optional `username` / `model_version`.
 
 ## Upload
 
-`/upload` accepts CSV or Excel (`away_team, home_team, spread`). Rows go straight into SQLite (no file copy). Exact duplicates are skipped.
+- **Vegas:** CSV/Excel `away_team, home_team, spread` (or enter lines in UI).
+- **Model / user:** `away_team, home_team, decision` (`cover` or `points`).
+
+Grading uses the **Vegas line in the DB** vs final scores. **Scoreboard** is the home page.
+
+Backfill decisions from `data/picks/2026*_model.csv` and `*_brett.csv`:
+
+```bash
+python scripts/ingest_decisions_once.py
+```
 
 ## Tests
 

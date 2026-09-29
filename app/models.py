@@ -39,7 +39,8 @@ class Pick(Base):
     matchup_id: Mapped[str] = mapped_column(
         String, ForeignKey("matchups.id"), nullable=False, index=True
     )
-    spread: Mapped[float] = mapped_column(Float, nullable=False)  # home margin
+    spread: Mapped[float] = mapped_column(Float, nullable=False)  # home margin (vegas); 0 if decision-only
+    decision: Mapped[str | None] = mapped_column(String, nullable=True)  # cover|points (model/user)
     source: Mapped[str] = mapped_column(String, nullable=False)  # vegas|user|model
     bookmaker: Mapped[str | None] = mapped_column(String, nullable=True)  # vegas only
     model_version: Mapped[str | None] = mapped_column(String, nullable=True)

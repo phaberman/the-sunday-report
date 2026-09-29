@@ -14,10 +14,13 @@ from app.routers.matchups import _pick_week
 
 router = APIRouter()
 
-SAMPLE_ROWS = [
+SAMPLE_ROWS_VEGAS = [
     {"away_team": "NE", "home_team": "SEA", "spread": "3.5"},
     {"away_team": "SF", "home_team": "LA", "spread": "3.5"},
-    {"away_team": "CHI", "home_team": "CAR", "spread": "-2.5"},
+]
+SAMPLE_ROWS_DECISION = [
+    {"away_team": "NE", "home_team": "SEA", "decision": "cover"},
+    {"away_team": "SF", "home_team": "LA", "decision": "points"},
 ]
 
 
@@ -45,8 +48,10 @@ def _upload_ctx(
         "usernames": ["Brett", "Phillip"],
         "model_versions": ["preseason", "v1"],
         "bookmakers": ["DraftKings", "FanDuel", "BetMGM", "Caesars"],
-        "sample_rows": SAMPLE_ROWS,
+        "sample_rows_vegas": SAMPLE_ROWS_VEGAS,
+        "sample_rows_decision": SAMPLE_ROWS_DECISION,
         "source": source,
+        "entry_source": source,
         "bookmaker": bookmaker,
         "username": username,
         "model_version": model_version,
@@ -147,28 +152,35 @@ def upload_entries(
     return templates.TemplateResponse(
         request,
         "partials/upload_entries.html",
-        {"entry_rows": rows, "week": shown, "season": season},
+        {"entry_rows": rows, "week": shown, "season": season, "entry_source": source},
     )
 
 
-def _entries_from_form(form) -> list[dict]:
-    """Parse pts_<id> / away_<id> / home_<id> fields."""
-    ids = set()
+def _entries_from_form(form, source: str) -> list[dict]:
+    """Parse pts_<id> or decision_<id> plus away/home fields."""
+    ids: set[str] = set()
     for key in form.keys():
         if key.startswith("pts_"):
             ids.add(key[4:])
+        if key.startswith("decision_"):
+            ids.add(key[9:])
     entries = []
     for mid in sorted(ids):
-        pts = (form.get(f"pts_{mid}") or "").strip()
-        if not pts:
-            continue
-        entries.append(
-            {
-                "away_team": form.get(f"away_{mid}") or "",
-                "home_team": form.get(f"home_{mid}") or "",
-                "points": pts,
-            }
-        )
+        base = {
+            "away_team": form.get(f"away_{mid}") or "",
+            "home_team": form.get(f"home_{mid}") or "",
+        }
+        if source == "vegas":
+            pts = (form.get(f"pts_{mid}") or "").strip()
+            if not pts:
+                continue
+            base["points"] = pts
+        else:
+            dec = (form.get(f"decision_{mid}") or "").strip()
+            if not dec:
+                continue
+            base["decision"] = dec
+        entries.append(base)
     return entries
 
 
@@ -205,7 +217,7 @@ async def upload(
             msg = f"inserted+{inserted}+skipped+{skipped}+dups"
         else:
             form = await request.form()
-            entries = _entries_from_form(form)
+            entries = _entries_from_form(form, source)
             inserted, skipped, dups = ingest.ingest_entries(
                 conn,
                 entries,

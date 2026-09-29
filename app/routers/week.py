@@ -44,7 +44,7 @@ def _pick_past(week_list: list[tuple[int, int]], week: int | None) -> tuple[int,
 
 @router.get("/")
 def home():
-    return RedirectResponse("/matchups", status_code=303)
+    return RedirectResponse("/scoreboard", status_code=303)
 
 
 @router.get("/picks")
