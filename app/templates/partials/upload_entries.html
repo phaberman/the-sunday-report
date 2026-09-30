@@ -57,17 +57,18 @@
               step="0.5"
               placeholder="3.5"
               inputmode="decimal"
+              {% if r.prefilled_points %}value="{{ r.prefilled_points }}"{% endif %}
             >
           </td>
           {% else %}
           <td>
             <div class="chip-row" role="radiogroup" aria-label="Decision {{ r.game }}">
               <label class="chip">
-                <input type="radio" name="decision_{{ r.id }}" value="cover">
+                <input type="radio" name="decision_{{ r.id }}" value="cover" {% if r.prefilled_decision == 'cover' %}checked{% endif %}>
                 <span>Cover</span>
               </label>
               <label class="chip">
-                <input type="radio" name="decision_{{ r.id }}" value="points">
+                <input type="radio" name="decision_{{ r.id }}" value="points" {% if r.prefilled_decision == 'points' %}checked{% endif %}>
                 <span>Points</span>
               </label>
             </div>

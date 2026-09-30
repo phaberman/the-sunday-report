@@ -6,7 +6,18 @@ import csv
 import io
 from pathlib import Path
 
-from app.db import ROOT, add_pick, latest_identity_pick, matchups_for, upsert_matchup
+from app.db import (
+    ROOT,
+    UPLOAD_VEGAS_BOOK,
+    add_pick,
+    delete_slot,
+    latest_identity_pick,
+    latest_slot_pick,
+    matchups_for,
+    slot_key_for_upload,
+    slot_uploaded,
+    upsert_matchup,
+)
 from app.models import Matchup, matchup_id
 from app.spreads import (
     favorite_and_line,
@@ -105,8 +116,6 @@ def _validate_meta(
         raise ValueError(f"source must be one of {sorted(SOURCES)}")
     if source == "user" and not username:
         raise ValueError("username required when source=user")
-    if source == "model" and not model_version:
-        raise ValueError("model_version required when source=model")
     if source == "vegas" and not bookmaker:
         raise ValueError("bookmaker required when source=vegas")
     if source == "vegas" and (username or model_version):
@@ -148,12 +157,20 @@ def ingest_rows(
     username: str | None = None,
     model_version: str | None = None,
     bookmaker: str | None = None,
+    replace_slot: bool = False,
 ) -> tuple[int, int]:
     """Insert picks. Returns (inserted, skipped_dups)."""
     username = (username or "").strip() or None
     model_version = (model_version or "").strip() or None
     bookmaker = (bookmaker or "").strip() or None
+    if source == "vegas" and not bookmaker:
+        bookmaker = UPLOAD_VEGAS_BOOK
     _validate_meta(source, username, model_version, bookmaker)
+    slot_key = slot_key_for_upload(source, username)
+    if slot_uploaded(session, season=season, week=week, slot_key=slot_key):
+        if not replace_slot:
+            raise ValueError(f"{slot_key} already uploaded for week {week}; use Adjust to replace")
+        delete_slot(session, season=season, week=week, slot_key=slot_key)
     inserted = skipped = 0
     for row in rows:
         away = norm_team(row.get("away_team") or row.get("away") or "")
@@ -204,6 +221,7 @@ def ingest_entries(
     username: str | None = None,
     model_version: str | None = None,
     bookmaker: str | None = None,
+    replace_slot: bool = False,
 ) -> tuple[int, int, int]:
     """Insert picks from UI rows.
 
@@ -216,7 +234,14 @@ def ingest_entries(
     username = (username or "").strip() or None
     model_version = (model_version or "").strip() or None
     bookmaker = (bookmaker or "").strip() or None
+    if source == "vegas" and not bookmaker:
+        bookmaker = UPLOAD_VEGAS_BOOK
     _validate_meta(source, username, model_version, bookmaker)
+    slot_key = slot_key_for_upload(source, username)
+    if slot_uploaded(session, season=season, week=week, slot_key=slot_key):
+        if not replace_slot:
+            raise ValueError(f"{slot_key} already uploaded for week {week}; use Adjust to replace")
+        delete_slot(session, season=season, week=week, slot_key=slot_key)
     inserted = skipped = dups = 0
     for entry in entries:
         away = norm_team(entry.get("away_team") or "")
@@ -226,17 +251,11 @@ def ingest_entries(
         matchup = _matchup_for_pick(
             session, season=season, week=week, away_team=away, home_team=home
         )
-        prior = latest_identity_pick(
-            session,
-            matchup_id=matchup.id,
-            source=source,
-            username=username,
-            model_version=model_version,
-            bookmaker=bookmaker,
-        )
-        if prior is not None:
-            skipped += 1
-            continue
+        if not replace_slot:
+            prior = latest_slot_pick(session, matchup_id=matchup.id, slot_key=slot_key)
+            if prior is not None:
+                skipped += 1
+                continue
         if source == "vegas":
             pts_raw = (entry.get("points") or "").strip()
             if not pts_raw:
@@ -294,6 +313,7 @@ def entry_rows_for(
     username: str | None = None,
     model_version: str | None = None,
     bookmaker: str | None = None,
+    adjust: bool = False,
 ) -> list[dict]:
     """Matchups for the enter-spreads table, with lock + display spread if locked."""
     from app.db import matchups_for
@@ -301,10 +321,13 @@ def entry_rows_for(
     username = (username or "").strip() or None
     model_version = (model_version or "").strip() or None
     bookmaker = (bookmaker or "").strip() or None
-    # Incomplete identity → show unlocked (submit will validate)
+    if source == "vegas" and not bookmaker:
+        bookmaker = UPLOAD_VEGAS_BOOK
     can_lock = True
+    slot_key = ""
     try:
         _validate_meta(source, username, model_version, bookmaker)
+        slot_key = slot_key_for_upload(source, username)
     except ValueError:
         can_lock = False
 
@@ -312,27 +335,31 @@ def entry_rows_for(
     for m in matchups_for(session, season, week):
         prior = None
         if can_lock:
-            prior = latest_identity_pick(
-                session,
-                matchup_id=m.id,
-                source=source,
-                username=username,
-                model_version=model_version,
-                bookmaker=bookmaker,
-            )
-        locked = prior is not None
+            prior = latest_slot_pick(session, matchup_id=m.id, slot_key=slot_key)
+        locked = prior is not None and not adjust
         locked_favorite = ""
         locked_points = ""
         locked_spread = ""
         locked_decision = ""
+        prefilled_points = ""
+        prefilled_decision = ""
         if prior:
             if prior.decision:
                 locked_decision = format_decision(prior.decision)
+                prefilled_decision = prior.decision
             else:
                 locked_favorite, locked_points = favorite_and_line(
                     m.away_team, m.home_team, prior.spread
                 )
                 locked_spread = format_spread(m.away_team, m.home_team, prior.spread)
+                try:
+                    pts = float(locked_points)
+                    if locked_favorite == m.home_team:
+                        prefilled_points = f"{pts:g}"
+                    elif locked_favorite == m.away_team:
+                        prefilled_points = f"{-pts:g}"
+                except ValueError:
+                    prefilled_points = ""
         rows.append(
             {
                 "id": m.id,
@@ -344,6 +371,8 @@ def entry_rows_for(
                 "locked_points": locked_points,
                 "locked_spread": locked_spread,
                 "locked_decision": locked_decision,
+                "prefilled_points": prefilled_points,
+                "prefilled_decision": prefilled_decision,
             }
         )
     return rows

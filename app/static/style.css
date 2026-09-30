@@ -478,6 +478,53 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   border-style: solid;
   border-color: var(--navy);
 }
+.upload-summary-wrap {
+  overflow-x: auto;
+  margin-top: 6px;
+}
+.upload-summary th,
+.upload-summary td {
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: center;
+}
+.upload-summary th:first-child,
+.upload-summary td:first-child {
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  left: 0;
+  background: #fff;
+}
+.upload-mark { font-size: 13px; }
+.slot-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slot-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.slot-delete {
+  display: inline;
+  margin: 0;
+}
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--navy);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+.btn-danger { color: #a33; }
 .upload-actions {
   display: flex;
   justify-content: flex-end;

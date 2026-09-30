@@ -85,7 +85,6 @@ def test_matchups_board_with_picks(tmp_path: Path):
     board = matchups_board(
         db.matchups_for(session, 2026, 1),
         bookmaker=VEGAS_BOOKMAKER,
-        model_version=MODEL_VERSION,
         usernames=SCOREBOARD_USERS,
     )
     assert board["usernames"] == list(SCOREBOARD_USERS)
@@ -409,23 +408,23 @@ def test_ingest_entries_and_lock(tmp_path: Path):
     assert prior is not None
     assert prior.spread == 3.5
 
-    inserted2, skipped2, dups2 = ingest.ingest_entries(
-        session,
-        [
-            {
-                "away_team": "NE",
-                "home_team": "SEA",
-                "points": "7",
-            }
-        ],
-        season=2026,
-        week=1,
-        source="vegas",
-        bookmaker="DraftKings",
-    )
-    assert inserted2 == 0
-    assert skipped2 == 1  # locked
-    assert dups2 == 0
+    import pytest
+
+    with pytest.raises(ValueError, match="already uploaded"):
+        ingest.ingest_entries(
+            session,
+            [
+                {
+                    "away_team": "NE",
+                    "home_team": "SEA",
+                    "points": "7",
+                }
+            ],
+            season=2026,
+            week=1,
+            source="vegas",
+            bookmaker="DraftKings",
+        )
 
     rows = ingest.entry_rows_for(
         session, season=2026, week=1, source="vegas", bookmaker="DraftKings"
@@ -505,7 +504,6 @@ def test_season_compare_totals(tmp_path: Path):
     board = season_compare(
         db.matchups_for_season(session, 2026),
         bookmaker=VEGAS_BOOKMAKER,
-        model_version=MODEL_VERSION,
         usernames=("Brett", "Phillip"),
     )
     assert board["model"]["wlp"] == "1-0-0"
@@ -575,3 +573,137 @@ def test_wipe_week_uploads(tmp_path: Path):
     assert not m.picks  # relationship may need refresh
     session.refresh(m)
     assert list(m.picks) == []
+
+
+def test_season_compare_ignores_model_version_label(tmp_path: Path):
+    from app.deps import USERNAME, VEGAS_BOOKMAKER
+    from app.models import Pick
+    from app.schedule import apply_schedule_rows
+    from app.score import season_compare
+
+    session = db.init(db.connect(tmp_path / "ver.db"))
+    for wk, ver in ((1, "preseason"), (2, "v2")):
+        apply_schedule_rows(
+            session,
+            [
+                {
+                    "season": 2026,
+                    "week": wk,
+                    "gameday": "2026-09-09",
+                    "gametime": "20:20",
+                    "away_team": "NE",
+                    "home_team": "SEA",
+                    "away_score": 10,
+                    "home_score": 24,
+                },
+            ],
+        )
+        m = db.matchups_for(session, 2026, wk)[0]
+        session.add(
+            Pick(matchup_id=m.id, spread=3.5, source="vegas", bookmaker="DraftKings")
+        )
+        session.add(
+            Pick(
+                matchup_id=m.id,
+                spread=0.0,
+                decision="cover",
+                source="model",
+                model_version=ver,
+            )
+        )
+    session.commit()
+
+    board = season_compare(
+        db.matchups_for_season(session, 2026),
+        bookmaker=VEGAS_BOOKMAKER,
+        usernames=("Brett", "Phillip"),
+    )
+    assert board["model"]["wlp"] == "2-0-0"
+    assert len(board["weekly"]) == 2
+
+
+def test_upload_slot_replace_and_delete(tmp_path: Path):
+    from app.schedule import apply_schedule_rows
+
+    session = db.init(db.connect(tmp_path / "slot.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 4,
+                "gameday": "2026-09-20",
+                "gametime": "13:00",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
+    ingest.ingest_entries(
+        session,
+        [{"away_team": "NE", "home_team": "SEA", "decision": "cover"}],
+        season=2026,
+        week=4,
+        source="model",
+        model_version="note-a",
+    )
+    assert db.slot_uploaded(session, season=2026, week=4, slot_key="model")
+
+    ingest.ingest_entries(
+        session,
+        [{"away_team": "NE", "home_team": "SEA", "decision": "points"}],
+        season=2026,
+        week=4,
+        source="model",
+        model_version="note-b",
+        replace_slot=True,
+    )
+    m = db.matchups_for(session, 2026, 4)[0]
+    model_picks = [p for p in m.picks if p.source == "model"]
+    assert len(model_picks) == 1
+    assert model_picks[0].decision == "points"
+
+    n = db.delete_slot(session, season=2026, week=4, slot_key="model")
+    assert n == 1
+    assert not db.slot_uploaded(session, season=2026, week=4, slot_key="model")
+
+
+def test_upload_summary_marks_weeks(tmp_path: Path):
+    from app.models import Pick
+    from app.schedule import apply_schedule_rows
+
+    session = db.init(db.connect(tmp_path / "sum.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 2,
+                "gameday": "2026-09-13",
+                "gametime": "13:00",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
+    m = db.matchups_for(session, 2026, 2)[0]
+    session.add(
+        Pick(matchup_id=m.id, spread=3.5, source="vegas", bookmaker="DraftKings")
+    )
+    session.commit()
+    summary = db.upload_summary(session, season=2026)
+    vegas_row = next(r for r in summary if r["key"] == "vegas")
+    assert vegas_row["weeks"][2] is True
+    assert vegas_row["weeks"][1] is False
+
+
+def test_upload_page_shows_summary_table():
+    with TestClient(app) as client:
+        r = client.get("/upload")
+        assert r.status_code == 200
+        assert "Upload summary" in r.text
+        assert "Vegas" in r.text

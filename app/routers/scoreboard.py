@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse
 from app import db
 from app.deps import (
     DbConn,
-    MODEL_VERSION,
     SCOREBOARD_USERS,
     SEASON,
     is_htmx,
@@ -27,7 +26,6 @@ def _week_ctx(conn, *, week: int | None) -> dict:
     board = scoreboard_board(
         matchups,
         bookmaker=VEGAS_BOOKMAKER,
-        default_model=MODEL_VERSION,
         default_users=SCOREBOARD_USERS,
     )
     return {
@@ -46,7 +44,6 @@ def _season_ctx(conn) -> dict:
     board = season_compare(
         matchups,
         bookmaker=VEGAS_BOOKMAKER,
-        model_version=MODEL_VERSION,
         usernames=SCOREBOARD_USERS,
     )
     return {

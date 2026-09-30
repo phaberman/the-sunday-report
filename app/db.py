@@ -10,6 +10,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import Base, Matchup, Pick, matchup_id
 
 ROOT = Path(__file__).resolve().parent.parent
+UPLOAD_VEGAS_BOOK = "DraftKings"
+UPLOAD_USERS: tuple[str, ...] = ("Brett", "Phillip")
+UPLOAD_SUMMARY_ROWS: tuple[tuple[str, str], ...] = (
+    ("vegas", "Vegas"),
+    ("model", "Model"),
+    ("Brett", "Brett"),
+    ("Phillip", "Phillip"),
+)
 DB_PATH = ROOT / "data" / "sunday.db"
 LEGACY_TABLES = ("games", "vegas_spreads")
 
@@ -133,6 +141,144 @@ def latest_identity_pick(
         .limit(1)
     )
     return session.scalars(q).first()
+
+
+def slot_key_for_upload(source: str, username: str | None = None) -> str:
+    if source == "vegas":
+        return "vegas"
+    if source == "model":
+        return "model"
+    if source == "user" and username:
+        return username
+    raise ValueError("invalid upload source identity")
+
+
+def _slot_meta(slot_key: str) -> tuple[str, str | None]:
+    """Map summary row key to pick source + username."""
+    if slot_key == "vegas":
+        return "vegas", None
+    if slot_key == "model":
+        return "model", None
+    if slot_key in UPLOAD_USERS:
+        return "user", slot_key
+    raise ValueError(f"unknown upload slot: {slot_key}")
+
+
+def _slot_pick_filters(source: str, username: str | None) -> list:
+    if source == "vegas":
+        return [Pick.source == "vegas", Pick.bookmaker == UPLOAD_VEGAS_BOOK]
+    if source == "model":
+        return [Pick.source == "model"]
+    return [Pick.source == "user", Pick.username == username]
+
+
+def latest_slot_pick(
+    session: Session,
+    *,
+    matchup_id: str,
+    slot_key: str,
+) -> Pick | None:
+    """Latest pick for a week upload slot (one model per game, fixed Vegas book)."""
+    source, username = _slot_meta(slot_key)
+    q = (
+        select(Pick)
+        .where(Pick.matchup_id == matchup_id, *_slot_pick_filters(source, username))
+        .order_by(Pick.created_at.desc(), Pick.id.desc())
+        .limit(1)
+    )
+    return session.scalars(q).first()
+
+
+def slot_uploaded(
+    session: Session,
+    *,
+    season: int,
+    week: int,
+    slot_key: str,
+) -> bool:
+    """True if any pick exists for this slot in the week."""
+    source, username = _slot_meta(slot_key)
+    q = (
+        select(Pick.id)
+        .join(Matchup, Matchup.id == Pick.matchup_id)
+        .where(
+            Matchup.season_year == season,
+            Matchup.season_week == week,
+            *_slot_pick_filters(source, username),
+        )
+        .limit(1)
+    )
+    return session.scalar(q) is not None
+
+
+def week_slots_uploaded(session: Session, *, season: int, week: int) -> dict[str, bool]:
+    return {
+        key: slot_uploaded(session, season=season, week=week, slot_key=key)
+        for key, _ in UPLOAD_SUMMARY_ROWS
+    }
+
+
+def week_upload_complete(session: Session, *, season: int, week: int) -> bool:
+    return all(week_slots_uploaded(session, season=season, week=week).values())
+
+
+def upload_summary(
+    session: Session,
+    *,
+    season: int,
+    max_week: int = 18,
+) -> list[dict]:
+    """Rows for upload summary table: slot label + week -> uploaded bool."""
+    weeks = list(range(1, max_week + 1))
+    uploaded: dict[str, set[int]] = {key: set() for key, _ in UPLOAD_SUMMARY_ROWS}
+    for slot_key, _ in UPLOAD_SUMMARY_ROWS:
+        source, username = _slot_meta(slot_key)
+        rows = session.execute(
+            select(Matchup.season_week)
+            .join(Pick, Pick.matchup_id == Matchup.id)
+            .where(
+                Matchup.season_year == season,
+                *_slot_pick_filters(source, username),
+            )
+            .distinct()
+        ).all()
+        uploaded[slot_key] = {int(r.season_week) for r in rows}
+    return [
+        {
+            "key": key,
+            "label": label,
+            "weeks": {w: w in uploaded[key] for w in weeks},
+        }
+        for key, label in UPLOAD_SUMMARY_ROWS
+    ]
+
+
+def delete_slot(
+    session: Session,
+    *,
+    season: int,
+    week: int,
+    slot_key: str,
+) -> int:
+    """Delete all picks for one upload slot in a week. Returns rows deleted."""
+    source, username = _slot_meta(slot_key)
+    ids = list(
+        session.scalars(
+            select(Matchup.id).where(
+                Matchup.season_year == season, Matchup.season_week == week
+            )
+        ).all()
+    )
+    if not ids:
+        return 0
+    res = session.execute(
+        delete(Pick).where(
+            Pick.matchup_id.in_(ids),
+            *_slot_pick_filters(source, username),
+        )
+    )
+    session.commit()
+    return res.rowcount or 0
 
 
 def add_pick(

@@ -10,7 +10,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app import db, odds
 from app.deps import (
     DbConn,
-    MODEL_VERSION,
     SCOREBOARD_USERS,
     SEASON,
     VEGAS_BOOKMAKER,
@@ -42,7 +41,6 @@ def _board(conn, season: int, week: int) -> dict:
     return matchups_board(
         db.matchups_for(conn, season, week),
         bookmaker=VEGAS_BOOKMAKER,
-        model_version=MODEL_VERSION,
         usernames=SCOREBOARD_USERS,
     )
 

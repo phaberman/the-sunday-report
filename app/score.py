@@ -19,11 +19,14 @@ def actual_margin(m: Matchup) -> float | None:
     return float(m.home_score) - float(m.away_score)
 
 
+MODEL_SLOT = "model"
+
+
 def pick_label(p: Pick) -> str:
     if p.source == "vegas":
         return f"vegas:{p.bookmaker or '?'}"
     if p.source == "model":
-        return f"model:{p.model_version or '?'}"
+        return f"model:{MODEL_SLOT}"
     if p.source == "user":
         return f"user:{p.username or '?'}"
     return p.source
@@ -54,7 +57,7 @@ def _latest_by_source(picks: list[Pick]) -> dict[str, dict[str, Pick]]:
         if p.source == "vegas":
             bucket, name = "vegas", p.bookmaker or "?"
         elif p.source == "model":
-            bucket, name = "model", p.model_version or "?"
+            bucket, name = "model", MODEL_SLOT
         elif p.source == "user":
             bucket, name = "user", p.username or "?"
         else:
@@ -73,16 +76,16 @@ def _fixed_vegas_pick(by_source: dict[str, dict[str, Pick]], bookmaker: str) -> 
     return primary_vegas(by_label)
 
 
-def week_identities(matchups: list[Matchup]) -> tuple[list[str], list[str]]:
-    models: set[str] = set()
+def week_identities(matchups: list[Matchup]) -> tuple[bool, list[str]]:
+    has_model = False
     users: set[str] = set()
     for m in matchups:
         for p in m.picks:
-            if p.source == "model" and p.model_version and p.decision:
-                models.add(p.model_version)
+            if p.source == "model" and p.decision:
+                has_model = True
             elif p.source == "user" and p.username and p.decision:
                 users.add(p.username)
-    return sorted(models), sorted(users)
+    return has_model, sorted(users)
 
 
 def merge_scoreboard_users(found: list[str], defaults: tuple[str, ...]) -> list[str]:
@@ -105,7 +108,6 @@ def _matchup_row(
     m: Matchup,
     *,
     bookmaker: str,
-    model_versions: list[str],
     usernames: list[str],
 ) -> dict:
     by_source = _latest_by_source(list(m.picks))
@@ -114,12 +116,9 @@ def _matchup_row(
     actual = actual_margin(m)
     played = m.away_score is not None and m.home_score is not None
 
-    models: dict[str, str] = {}
-    model_grades: dict[str, str] = {}
-    for ver in model_versions:
-        pick = by_source["model"].get(ver)
-        models[ver] = format_decision(pick.decision) if pick and pick.decision else ""
-        model_grades[ver] = format_grade(_grade_pick(pick, vegas_margin, actual))
+    model_pick = by_source["model"].get(MODEL_SLOT)
+    model_decision = format_decision(model_pick.decision) if model_pick and model_pick.decision else ""
+    model_grade = format_grade(_grade_pick(model_pick, vegas_margin, actual))
 
     users: dict[str, str] = {}
     user_grades: dict[str, str] = {}
@@ -134,8 +133,8 @@ def _matchup_row(
         "away_points": m.away_score if played else None,
         "home_points": m.home_score if played else None,
         "vegas": format_spread(m.away_team, m.home_team, vegas_margin),
-        "models": models,
-        "model_grades": model_grades,
+        "model": model_decision,
+        "model_grade": model_grade,
         "users": users,
         "user_grades": user_grades,
     }
@@ -145,30 +144,19 @@ def scoreboard_board(
     matchups: list[Matchup],
     *,
     bookmaker: str,
-    default_model: str,
     default_users: tuple[str, ...],
 ) -> dict:
-    model_versions, found_users = week_identities(matchups)
-    if not model_versions:
-        model_versions = [default_model]
+    _, found_users = week_identities(matchups)
     usernames = merge_scoreboard_users(found_users, default_users)
 
     rows = [
-        _matchup_row(
-            m,
-            bookmaker=bookmaker,
-            model_versions=model_versions,
-            usernames=usernames,
-        )
+        _matchup_row(m, bookmaker=bookmaker, usernames=usernames)
         for m in matchups
     ]
     records = tally_decision_records(matchups, bookmaker=bookmaker)
-    record_cards = ordered_record_cards(
-        records, model_versions=model_versions, usernames=usernames
-    )
+    record_cards = ordered_record_cards(records, usernames=usernames)
     return {
         "rows": rows,
-        "model_versions": model_versions,
         "usernames": usernames,
         "records": records,
         "record_cards": record_cards,
@@ -179,13 +167,11 @@ def matchups_board(
     matchups: list[Matchup],
     *,
     bookmaker: str,
-    model_version: str,
     usernames: tuple[str, ...],
 ) -> dict:
     data = scoreboard_board(
         matchups,
         bookmaker=bookmaker,
-        default_model=model_version,
         default_users=usernames,
     )
     rows = []
@@ -197,8 +183,8 @@ def matchups_board(
                 "away_points": r["away_points"],
                 "home_points": r["home_points"],
                 "vegas": r["vegas"],
-                "model": r["models"].get(model_version, ""),
-                "model_grade": r["model_grades"].get(model_version, "—"),
+                "model": r["model"],
+                "model_grade": r["model_grade"],
                 "users": r["users"],
                 "user_grades": r["user_grades"],
             }
@@ -206,7 +192,6 @@ def matchups_board(
     return {
         "rows": rows,
         "usernames": data["usernames"],
-        "model_version": model_version,
     }
 
 
@@ -243,7 +228,7 @@ def record_for_identity(
         vegas_margin = vegas_pick.spread if vegas_pick and not vegas_pick.decision else None
         actual = actual_margin(m)
         if source == "model":
-            pick = by_source["model"].get(name)
+            pick = by_source["model"].get(MODEL_SLOT)
         elif source == "user":
             pick = by_source["user"].get(name)
         else:
@@ -267,20 +252,18 @@ def _record_card_title(label: str) -> str:
 def ordered_record_cards(
     records: dict[str, dict[str, int]],
     *,
-    model_versions: list[str],
     usernames: list[str],
 ) -> list[dict]:
     """Model + user cards for scoreboard (always W-L-P + win %)."""
     cards: list[dict] = []
-    for mv in model_versions:
-        label = f"model:{mv}"
-        cards.append(
-            {
-                "label": label,
-                "title": _record_card_title(label),
-                **enrich_record(records.get(label, _empty_record())),
-            }
-        )
+    label = f"model:{MODEL_SLOT}"
+    cards.append(
+        {
+            "label": label,
+            "title": _record_card_title(label),
+            **enrich_record(records.get(label, _empty_record())),
+        }
+    )
     for name in usernames:
         label = f"user:{name}"
         cards.append(
@@ -318,7 +301,6 @@ def season_compare(
     matchups: list[Matchup],
     *,
     bookmaker: str,
-    model_version: str,
     usernames: tuple[str, ...],
 ) -> dict:
     """Season ATS records: model + each user, with per-week breakdown."""
@@ -330,7 +312,7 @@ def season_compare(
     for w in weeks:
         wm = [m for m in matchups if m.season_week == w]
         mr = record_for_identity(
-            wm, bookmaker=bookmaker, source="model", name=model_version
+            wm, bookmaker=bookmaker, source="model", name=MODEL_SLOT
         )
         user_rows = {
             u: enrich_record(
@@ -360,7 +342,7 @@ def season_compare(
             matchups,
             bookmaker=bookmaker,
             source="model",
-            name=model_version,
+            name=MODEL_SLOT,
         )
     )
     users_total = {
@@ -382,7 +364,6 @@ def season_compare(
         "model": model_total,
         "users": users_total,
         "usernames": list(usernames),
-        "model_version": model_version,
         "weekly": weekly,
         "max_week_wins": max_week_wins,
         "has_graded": has_graded,

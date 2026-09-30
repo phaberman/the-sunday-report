@@ -20,10 +20,8 @@
         <th>Away Pts</th>
         <th>Home Pts</th>
         <th>Line</th>
-        {% for mv in model_versions %}
         <th>Model</th>
         <th></th>
-        {% endfor %}
         {% for u in usernames %}
         <th>{{ u }}</th>
         <th></th>
@@ -37,10 +35,8 @@
         <td>{{ r.away_points if r.away_points is not none else "—" }}</td>
         <td>{{ r.home_points if r.home_points is not none else "—" }}</td>
         <td class="spread">{{ r.vegas or "—" }}</td>
-        {% for mv in model_versions %}
-        <td>{{ r.models.get(mv, "—") }}</td>
-        <td class="grade grade-{{ r.model_grades.get(mv, '—') }}">{{ r.model_grades.get(mv, "—") }}</td>
-        {% endfor %}
+        <td>{{ r.model or "—" }}</td>
+        <td class="grade grade-{{ r.model_grade }}">{{ r.model_grade }}</td>
         {% for u in usernames %}
         <td>{{ r.users.get(u, "—") }}</td>
         <td class="grade grade-{{ r.user_grades.get(u, '—') }}">{{ r.user_grades.get(u, "—") }}</td>

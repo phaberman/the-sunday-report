@@ -108,11 +108,12 @@ def test_ingest_and_dups(tmp_path: Path):
     assert m.away_team == "NE"
     assert any(p.decision == "cover" and p.source == "model" for p in m.picks)
 
-    inserted2, skipped2 = ingest.ingest_rows(
-        session, rows, season=2026, week=1, source="model", model_version="preseason"
-    )
-    assert inserted2 == 0
-    assert skipped2 == 16
+    import pytest
+
+    with pytest.raises(ValueError, match="already uploaded"):
+        ingest.ingest_rows(
+            session, rows, season=2026, week=1, source="model", model_version="preseason"
+        )
 
     ingest.ingest_rows(
         session,
