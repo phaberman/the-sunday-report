@@ -34,8 +34,8 @@ def test_away_favorite_and_lar():
 
 
 def test_numeric_spread():
-    assert to_home_margin("NE", "SEA", "3.5") == 3.5
-    assert to_home_margin("CHI", "CAR", "-2.5") == -2.5
+    assert to_home_margin("NE", "SEA", "3.5") == -3.5
+    assert to_home_margin("CHI", "CAR", "-2.5") == 2.5
     assert to_home_margin("NE", "SEA", "PK") == 0.0
 
 
@@ -62,7 +62,7 @@ def test_spread_text_prefers_signed_spread_line():
         "spread_line": "-3.5",
     }
     assert ingest._spread_text(row) == "-3.5"
-    assert to_home_margin("BAL", "IND", ingest._spread_text(row)) == -3.5
+    assert to_home_margin("BAL", "IND", ingest._spread_text(row)) == 3.5
 
 
 def test_grade_decision_cover_points():

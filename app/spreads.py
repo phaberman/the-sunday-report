@@ -58,7 +58,8 @@ def to_home_margin(away: str, home: str, spread_text: str) -> float:
         return 0.0
     num = NUM_SPREAD_RE.match(raw)
     if num:
-        return float(num.group(1))
+        # ponytail: bare numbers use the nflverse spread_line convention (negative = home favored)
+        return -float(num.group(1))
     parsed = parse_spread_cell(spread_text)
     if parsed is None:
         return 0.0
