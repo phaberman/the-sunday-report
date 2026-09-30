@@ -154,6 +154,34 @@ def favorite_covers(vegas_margin: float, actual_margin: float) -> bool:
     return actual_margin < vegas_margin
 
 
+def actual_ats_decision(
+    vegas_margin: float | None, actual_margin: float | None
+) -> str:
+    """Who won ATS in cover/points terms: cover, points, push, or "" if unknown."""
+    if vegas_margin is None or actual_margin is None:
+        return ""
+    if abs(actual_margin - vegas_margin) < 1e-9:
+        return "push"
+    if abs(vegas_margin) < 1e-9:
+        if actual_margin > 0:
+            return "cover"
+        if actual_margin < 0:
+            return "points"
+        return "push"
+    return "cover" if favorite_covers(vegas_margin, actual_margin) else "points"
+
+
+def format_ats_result(
+    vegas_margin: float | None, actual_margin: float | None
+) -> str:
+    d = actual_ats_decision(vegas_margin, actual_margin)
+    if not d:
+        return ""
+    if d == "push":
+        return "Push"
+    return format_decision(d)
+
+
 def grade_decision(
     decision: str | None,
     vegas_margin: float | None,

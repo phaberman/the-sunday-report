@@ -2,6 +2,7 @@
 <p class="muted">{{ default_season }} · Week {{ week }}</p>
 
 <div class="toolbar matchups-toolbar upload-toolbar">
+  <div class="upload-toolbar-row upload-toolbar-row-view">
   <div class="seg upload-view scoreboard-view" role="radiogroup" aria-label="Upload view">
     <label class="seg-opt">
       <input type="radio" name="upload_view" value="status"
@@ -20,6 +21,8 @@
       <span>Add picks</span>
     </label>
   </div>
+  </div>
+  <div class="upload-toolbar-row upload-toolbar-row-weeks">
   <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
     {% for w in weeks %}
     <label class="chip{% if (default_season, w) in past_weeks %} chip-past{% endif %}">
@@ -31,6 +34,7 @@
       <span>{{ w }}</span>
     </label>
     {% endfor %}
+  </div>
   </div>
 </div>
 

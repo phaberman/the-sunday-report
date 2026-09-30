@@ -6,6 +6,7 @@ from app.models import Matchup, Pick
 from app.odds import format_kickoff
 from app.spreads import (
     explain_spread,
+    format_ats_result,
     format_decision,
     format_grade,
     format_spread,
@@ -133,6 +134,7 @@ def _matchup_row(
         "away_points": m.away_score if played else None,
         "home_points": m.home_score if played else None,
         "vegas": format_spread(m.away_team, m.home_team, vegas_margin),
+        "ats_result": format_ats_result(vegas_margin, actual if played else None),
         "model": model_decision,
         "model_grade": model_grade,
         "users": users,

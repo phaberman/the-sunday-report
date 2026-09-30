@@ -6,6 +6,7 @@
 {% endif %}
 
 <div class="toolbar matchups-toolbar scoreboard-toolbar">
+  <div class="scoreboard-toolbar-row scoreboard-toolbar-row-view">
   <div class="seg seg-mode scoreboard-view" role="radiogroup" aria-label="Scoreboard range">
     <label class="seg-opt">
       <input type="radio" name="sb_view" value="week"
@@ -24,7 +25,9 @@
       <span>Season</span>
     </label>
   </div>
+  </div>
   {% if view == 'week' %}
+  <div class="scoreboard-toolbar-row scoreboard-toolbar-row-weeks">
   <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
     {% for s, w in week_list %}
     <label class="chip">
@@ -36,6 +39,7 @@
       <span>{{ w }}</span>
     </label>
     {% endfor %}
+  </div>
   </div>
   {% endif %}
 </div>

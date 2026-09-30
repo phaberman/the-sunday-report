@@ -559,14 +559,39 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .upload-toolbar {
   width: 100%;
   margin-bottom: 12px;
+  flex-direction: column;
   flex-wrap: nowrap;
-  align-items: center;
+  align-items: stretch;
+  gap: 8px;
 }
-.upload-toolbar .upload-view {
-  width: auto;
-  max-width: 14rem;
-  flex: 0 0 auto;
+.upload-toolbar-row {
+  width: 100%;
+  min-width: 0;
+}
+.upload-toolbar-row-view .upload-view {
+  width: 100%;
+  max-width: none;
   grid-template-columns: 1fr 1fr;
+}
+.upload-toolbar-row-weeks .matchups-weeks,
+.scoreboard-toolbar-row-weeks .matchups-weeks {
+  width: 100%;
+  flex: none;
+}
+.scoreboard-toolbar {
+  width: 100%;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 8px;
+}
+.scoreboard-toolbar-row {
+  width: 100%;
+  min-width: 0;
+}
+.scoreboard-toolbar-row-view .scoreboard-view {
+  width: 100%;
+  max-width: none;
 }
 .upload-banner {
   margin: 0 0 12px;
@@ -821,15 +846,6 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .picks-table tr.subhead th {
   background: var(--navy-2);
   font-size: 10px;
-}
-.scoreboard-toolbar {
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-.scoreboard-view {
-  flex: 0 0 auto;
-  max-width: 14rem;
 }
 .compare-card-lead { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy); }
 .compare-pct {

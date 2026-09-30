@@ -3,10 +3,12 @@ from pathlib import Path
 from app import db, ingest
 from app.models import matchup_id
 from app.spreads import (
+    actual_ats_decision,
     ats,
     closer,
     explain_spread,
     favorite_and_line,
+    format_ats_result,
     format_spread,
     grade_decision,
     norm_team,
@@ -70,6 +72,10 @@ def test_grade_decision_cover_points():
     assert grade_decision("cover", 5.5, 3.0) == "loss"
     assert grade_decision("points", 5.5, 3.0) == "win"
     assert grade_decision("cover", 5.5, 5.5) == "push"
+    assert actual_ats_decision(5.5, 3.0) == "points"
+    assert format_ats_result(5.5, 3.0) == "Points"
+    assert format_ats_result(5.5, 5.5) == "Push"
+    assert format_ats_result(5.5, 10.0) == "Cover"
     # PK: cover = home
     assert grade_decision("cover", 0.0, 7.0) == "win"
     assert grade_decision("points", 0.0, 7.0) == "loss"
