@@ -123,8 +123,10 @@ def test_spreads_page_and_export(monkeypatch):
         assert 'href="/spreads"' in r.text
         assert r.text.index('href="/spreads"') < r.text.index("Upload")
 
-        r = client.get("/spreads", headers={"HX-Request": "true"})
+        r = client.get("/spreads", headers={"HX-Request": "true"}, params={"week": 1})
         assert r.status_code == 200
+        assert 'id="spreads-panel"' in r.text
+        assert "Week 1" in r.text
         assert 'id="board"' in r.text
         assert "<html" not in r.text.lower()
 
@@ -174,8 +176,10 @@ def test_matchups_page_and_export():
         assert 'aria-label="Export week to Excel"' in r.text
         assert 'aria-label="Refresh schedule and scores"' in r.text
 
-        r = client.get("/matchups", headers={"HX-Request": "true"})
+        r = client.get("/matchups", headers={"HX-Request": "true"}, params={"week": 1})
         assert r.status_code == 200
+        assert 'id="matchups-panel"' in r.text
+        assert "Week 1" in r.text
         assert 'id="board"' in r.text
         assert "<html" not in r.text.lower()
 

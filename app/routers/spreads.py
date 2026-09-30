@@ -80,7 +80,7 @@ def spreads_page(
 ):
     ctx = _ctx(conn, week=week, toast=toast, error=error)
     if is_htmx(request):
-        return templates.TemplateResponse(request, "partials/spreads_board.html", ctx)
+        return templates.TemplateResponse(request, "partials/spreads_panel.html", ctx)
     return templates.TemplateResponse(request, "spreads.html", ctx)
 
 

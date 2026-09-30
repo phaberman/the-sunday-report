@@ -1,0 +1,36 @@
+<div id="spreads-panel">
+<p class="muted">{{ season }} · Week {{ week }}</p>
+{% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
+
+<div class="toolbar matchups-toolbar">
+  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
+    {% for s, w in week_list %}
+    <label class="chip{% if (s, w) in past_weeks %} chip-past{% endif %}">
+      <input type="radio" name="week" value="{{ w }}"
+        {% if w == week %}checked{% endif %}
+        hx-get="/spreads"
+        hx-target="#spreads-panel"
+        hx-swap="outerHTML">
+      <span>{{ w }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="btn-row matchups-actions matchups-actions-icons">
+    <form method="post" action="/spreads/refresh">
+      <input type="hidden" name="week" value="{{ week }}">
+      <button type="submit" class="btn btn-sm btn-icon" aria-label="Get current spreads" title="Get current spreads" {% if not is_current_week %}disabled{% endif %}>
+        <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+        </svg>
+      </button>
+    </form>
+    <a class="btn btn-ghost btn-sm btn-icon" href="/spreads/export?week={{ week }}" aria-label="Export week to Excel" title="Export week to Excel">
+      <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
+      </svg>
+    </a>
+  </div>
+</div>
+
+{% include "partials/spreads_board.html" %}
+</div>

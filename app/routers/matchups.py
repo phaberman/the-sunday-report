@@ -72,7 +72,7 @@ def matchups(
 ):
     ctx = _ctx(conn, week=week, flash=flash, error=error)
     if is_htmx(request):
-        return templates.TemplateResponse(request, "partials/matchups_board.html", ctx)
+        return templates.TemplateResponse(request, "partials/matchups_panel.html", ctx)
     return templates.TemplateResponse(request, "matchups.html", ctx)
 
 
