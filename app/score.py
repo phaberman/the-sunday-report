@@ -163,11 +163,15 @@ def scoreboard_board(
         for m in matchups
     ]
     records = tally_decision_records(matchups, bookmaker=bookmaker)
+    record_cards = ordered_record_cards(
+        records, model_versions=model_versions, usernames=usernames
+    )
     return {
         "rows": rows,
         "model_versions": model_versions,
         "usernames": usernames,
         "records": records,
+        "record_cards": record_cards,
     }
 
 
@@ -176,13 +180,13 @@ def matchups_board(
     *,
     bookmaker: str,
     model_version: str,
-    username: str,
+    usernames: tuple[str, ...],
 ) -> dict:
     data = scoreboard_board(
         matchups,
         bookmaker=bookmaker,
         default_model=model_version,
-        default_users=(username,),
+        default_users=usernames,
     )
     rows = []
     for r in data["rows"]:
@@ -195,19 +199,27 @@ def matchups_board(
                 "vegas": r["vegas"],
                 "model": r["models"].get(model_version, ""),
                 "model_grade": r["model_grades"].get(model_version, "—"),
-                "user": r["users"].get(username, ""),
-                "user_grade": r["user_grades"].get(username, "—"),
+                "users": r["users"],
+                "user_grades": r["user_grades"],
             }
         )
-    return {"rows": rows, "user_col": username, "model_version": model_version}
+    return {
+        "rows": rows,
+        "usernames": data["usernames"],
+        "model_version": model_version,
+    }
 
 
-def pick_counts(rows: list[dict]) -> dict[str, int]:
+def pick_counts(rows: list[dict], *, usernames: tuple[str, ...] = ()) -> dict[str, int]:
     total = len(rows)
+    user_counts = {
+        name: sum(1 for r in rows if (r.get("users") or {}).get(name))
+        for name in usernames
+    }
     return {
         "vegas": sum(1 for r in rows if r.get("vegas")),
         "model": sum(1 for r in rows if r.get("model")),
-        "user": sum(1 for r in rows if r.get("user")),
+        "users": user_counts,
         "total": total,
     }
 
@@ -242,6 +254,43 @@ def record_for_identity(
         if g in bucket:
             bucket[g] += 1
     return bucket
+
+
+def _record_card_title(label: str) -> str:
+    if label.startswith("model:"):
+        return "Model"
+    if label.startswith("user:"):
+        return label.split(":", 1)[1]
+    return label
+
+
+def ordered_record_cards(
+    records: dict[str, dict[str, int]],
+    *,
+    model_versions: list[str],
+    usernames: list[str],
+) -> list[dict]:
+    """Model + user cards for scoreboard (always W-L-P + win %)."""
+    cards: list[dict] = []
+    for mv in model_versions:
+        label = f"model:{mv}"
+        cards.append(
+            {
+                "label": label,
+                "title": _record_card_title(label),
+                **enrich_record(records.get(label, _empty_record())),
+            }
+        )
+    for name in usernames:
+        label = f"user:{name}"
+        cards.append(
+            {
+                "label": label,
+                "title": _record_card_title(label),
+                **enrich_record(records.get(label, _empty_record())),
+            }
+        )
+    return cards
 
 
 def enrich_record(r: dict[str, int]) -> dict:

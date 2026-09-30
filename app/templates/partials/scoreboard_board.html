@@ -1,12 +1,15 @@
 <div id="board">
-  <div class="cards">
-    {% for label, bucket in records.items() %}
-    <div class="card">
-      <div class="n">{{ bucket.win }}-{{ bucket.loss }}{% if bucket.push %}-{{ bucket.push }}{% endif %}</div>
-      <div class="l">{% if label.startswith('model:') %}Model{% elif label.startswith('user:') %}{{ label.split(':', 1)[1] }}{% else %}{{ label }}{% endif %} W-L{% if bucket.push %}-P{% endif %}</div>
+  <div class="cards compare-cards">
+    {% for card in record_cards %}
+    <div class="card compare-card">
+      <div class="n">{{ card.wlp }}</div>
+      <div class="l">{{ card.title }} W-L-P</div>
+      {% if card.win_pct is not none %}
+      <div class="compare-pct">{{ card.win_pct }}% win rate</div>
+      {% endif %}
     </div>
     {% else %}
-    <div class="card"><div class="n">—</div><div class="l">No picks yet</div></div>
+    <div class="card compare-card"><div class="n">—</div><div class="l">No picks yet</div></div>
     {% endfor %}
   </div>
   <div class="table-card">

@@ -339,7 +339,9 @@ def export_week_xlsx(rows: list[dict]) -> bytes:
     return buf.getvalue()
 
 
-def export_matchups_xlsx(rows: list[dict], *, user_col: str = "User") -> bytes:
+def export_matchups_xlsx(
+    rows: list[dict], *, usernames: tuple[str, ...] = ("Brett", "Phillip")
+) -> bytes:
     from openpyxl import Workbook
     from io import BytesIO
 
@@ -354,10 +356,11 @@ def export_matchups_xlsx(rows: list[dict], *, user_col: str = "User") -> bytes:
             "Home Pts",
             "Vegas",
             "Model",
-            user_col,
+            *usernames,
         ]
     )
     for r in rows:
+        users = r.get("users") or {}
         ws.append(
             [
                 r["matchup"],
@@ -366,7 +369,7 @@ def export_matchups_xlsx(rows: list[dict], *, user_col: str = "User") -> bytes:
                 r["home_points"] if r.get("home_points") is not None else "",
                 r.get("vegas") or "",
                 r.get("model") or "",
-                r.get("user") or "",
+                *[users.get(u) or "" for u in usernames],
             ]
         )
     buf = BytesIO()

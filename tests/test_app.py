@@ -32,7 +32,7 @@ def test_html_pages_render():
 
 
 def test_matchups_board_with_picks(tmp_path: Path):
-    from app.deps import MODEL_VERSION, USERNAME, VEGAS_BOOKMAKER
+    from app.deps import MODEL_VERSION, SCOREBOARD_USERS, USERNAME, VEGAS_BOOKMAKER
     from app.models import Pick
     from app.schedule import apply_schedule_rows
     from app.score import matchups_board
@@ -86,14 +86,14 @@ def test_matchups_board_with_picks(tmp_path: Path):
         db.matchups_for(session, 2026, 1),
         bookmaker=VEGAS_BOOKMAKER,
         model_version=MODEL_VERSION,
-        username=USERNAME,
+        usernames=SCOREBOARD_USERS,
     )
-    assert board["user_col"] == USERNAME
+    assert board["usernames"] == list(SCOREBOARD_USERS)
     row = board["rows"][0]
     assert row["matchup"] == "NE @ SEA"
     assert row["vegas"] == "SEA -3.5"
     assert row["model"] == "Cover"
-    assert row["user"] == "Points"
+    assert row["users"][USERNAME] == "Points"
 
     with TestClient(app) as client:
         r = client.get("/matchups")
@@ -101,6 +101,7 @@ def test_matchups_board_with_picks(tmp_path: Path):
         assert "Matchup" in r.text
         assert "Line" in r.text
         assert USERNAME in r.text
+        assert "Phillip" in r.text
         assert "Diff" not in r.text
 
         r = client.get("/matchups", headers={"HX-Request": "true"})

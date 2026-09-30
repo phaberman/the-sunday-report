@@ -11,8 +11,8 @@ from app import db, odds
 from app.deps import (
     DbConn,
     MODEL_VERSION,
+    SCOREBOARD_USERS,
     SEASON,
-    USERNAME,
     VEGAS_BOOKMAKER,
     is_htmx,
     templates,
@@ -43,7 +43,7 @@ def _board(conn, season: int, week: int) -> dict:
         db.matchups_for(conn, season, week),
         bookmaker=VEGAS_BOOKMAKER,
         model_version=MODEL_VERSION,
-        username=USERNAME,
+        usernames=SCOREBOARD_USERS,
     )
 
 
@@ -82,12 +82,17 @@ def refresh(conn: DbConn, week: int | None = Form(None)):
         info = refresh_schedule(conn, SEASON)
         w = week if week is not None else _pick_week(conn, None)[1]
         season, shown = _pick_week(conn, w)
-        counts = pick_counts(_board(conn, season, shown)["rows"])
+        board = _board(conn, season, shown)
+        counts = pick_counts(board["rows"], usernames=SCOREBOARD_USERS)
+        user_bits = " · ".join(
+            f"{name} {counts['users'][name]}/{counts['total']}"
+            for name in SCOREBOARD_USERS
+        )
         msg = (
             f"Updated {info['n']} matchups ({info['with_scores']} with scores). "
             f"Picks: Vegas {counts['vegas']}/{counts['total']} · "
             f"Model {counts['model']}/{counts['total']} · "
-            f"{USERNAME} {counts['user']}/{counts['total']}"
+            f"{user_bits}"
         )
         return RedirectResponse(
             f"/matchups?flash={quote(msg)}&week={w}",
@@ -107,7 +112,9 @@ def export_xlsx(conn: DbConn, week: int | None = None):
     board = _board(conn, season, shown)
     name = f"{season}_week_{shown:02d}_matchups.xlsx"
     return Response(
-        content=odds.export_matchups_xlsx(board["rows"], user_col=board["user_col"]),
+        content=odds.export_matchups_xlsx(
+            board["rows"], usernames=board["usernames"]
+        ),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )

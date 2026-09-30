@@ -10,8 +10,10 @@
         <th>Line</th>
         <th>Model</th>
         <th></th>
-        <th>{{ user_col }}</th>
+        {% for u in usernames %}
+        <th>{{ u }}</th>
         <th></th>
+        {% endfor %}
       </tr>
     </thead>
     <tbody>
@@ -24,11 +26,13 @@
         <td class="spread">{{ r.vegas or "—" }}</td>
         <td>{{ r.model or "—" }}</td>
         <td class="grade grade-{{ r.model_grade }}">{{ r.model_grade }}</td>
-        <td>{{ r.user or "—" }}</td>
-        <td class="grade grade-{{ r.user_grade }}">{{ r.user_grade }}</td>
+        {% for u in usernames %}
+        <td>{{ r.users.get(u, "—") or "—" }}</td>
+        <td class="grade grade-{{ r.user_grades.get(u, '—') }}">{{ r.user_grades.get(u, "—") }}</td>
+        {% endfor %}
       </tr>
       {% else %}
-      <tr><td colspan="7">No matchups for this week.</td></tr>
+      <tr><td colspan="{{ 7 + 2 * usernames|length }}">No matchups for this week.</td></tr>
       {% endfor %}
     </tbody>
   </table>
