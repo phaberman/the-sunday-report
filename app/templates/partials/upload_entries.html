@@ -11,6 +11,7 @@
           <th>Favorite</th>
           <th>Line</th>
           {% else %}
+          <th>Line</th>
           <th>Pick</th>
           {% endif %}
         </tr>
@@ -35,6 +36,7 @@
             <span class="mono">{{ r.locked_spread }}</span>
           </td>
           {% else %}
+          <td class="mono enter-vegas-line">{{ r.vegas_line or "—" }}</td>
           <td><span class="mono">{{ r.locked_decision }}</span></td>
           {% endif %}
           {% elif entry_source == "vegas" %}
@@ -61,6 +63,7 @@
             >
           </td>
           {% else %}
+          <td class="mono enter-vegas-line">{{ r.vegas_line or "—" }}</td>
           <td>
             <div class="chip-row" role="radiogroup" aria-label="Decision {{ r.game }}">
               <label class="chip">

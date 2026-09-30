@@ -511,6 +511,8 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   background: #fff;
 }
 .upload-mark { font-size: 13px; }
+.upload-mark-ok { color: #0d7a3a; }
+.upload-mark-miss { color: var(--red); }
 .slot-list {
   list-style: none;
   margin: 8px 0 0;
@@ -757,6 +759,10 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   min-width: 5.5rem;
   padding: 8px 10px;
   font-variant-numeric: tabular-nums;
+}
+.enter-table .enter-vegas-line {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .enter-hint, .empty-entries { margin: 10px 0 0; }
 .schema-help { margin-top: 18px; }

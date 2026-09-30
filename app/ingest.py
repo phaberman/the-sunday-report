@@ -360,6 +360,10 @@ def entry_rows_for(
                         prefilled_points = f"{-pts:g}"
                 except ValueError:
                     prefilled_points = ""
+        vegas_line = ""
+        vegas_pick = latest_slot_pick(session, matchup_id=m.id, slot_key="vegas")
+        if vegas_pick and not vegas_pick.decision:
+            vegas_line = format_spread(m.away_team, m.home_team, vegas_pick.spread)
         rows.append(
             {
                 "id": m.id,
@@ -373,6 +377,7 @@ def entry_rows_for(
                 "locked_decision": locked_decision,
                 "prefilled_points": prefilled_points,
                 "prefilled_decision": prefilled_decision,
+                "vegas_line": vegas_line,
             }
         )
     return rows

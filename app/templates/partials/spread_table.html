@@ -1,7 +1,7 @@
 <div class="table-card" id="table">
   <table>
     <thead>
-      <tr><th>Index</th><th>Kickoff</th><th>Matchup</th><th>Home Team</th><th>Away Team</th><th>Spread</th></tr>
+      <tr><th>Index</th><th>Kickoff</th><th>Matchup</th><th>Away Team</th><th>Home Team</th><th>Spread</th></tr>
     </thead>
     <tbody>
       {% for r in rows %}
@@ -9,8 +9,8 @@
         <td class="mono">{{ r.index }}</td>
         <td class="mono">{{ r.kickoff }}</td>
         <td>{{ r.game }}</td>
-        <td>{{ r.home_team }}</td>
         <td>{{ r.away_team }}</td>
+        <td>{{ r.home_team }}</td>
         <td class="spread">{% if r.vegas_hint %}<span class="tip">{{ r.vegas_hint }}</span>{% endif %}{{ r.vegas }}</td>
       </tr>
       {% else %}

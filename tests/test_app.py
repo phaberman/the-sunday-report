@@ -442,6 +442,11 @@ def test_ingest_entries_and_lock(tmp_path: Path):
     assert sea["locked_spread"] == "SEA -3.5"
     assert sea["locked_favorite"] == "SEA"
     assert sea["locked_points"] == "3.5"
+    model_rows = ingest.entry_rows_for(session, season=2026, week=1, source="model")
+    sea_model = next(r for r in model_rows if r["home_team"] == "SEA")
+    assert sea_model["vegas_line"] == "SEA -3.5"
+    la_model = next(r for r in model_rows if r["home_team"] == "LA")
+    assert la_model["vegas_line"] == ""
 
 
 def test_ingest_entries_decision(tmp_path: Path):

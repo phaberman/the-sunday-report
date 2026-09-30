@@ -60,7 +60,7 @@
         <tr>
           <td>{{ row.label }}</td>
           {% for w in summary_weeks %}
-          <td class="mono upload-mark{% if w == week %} upload-summary-col-active{% endif %}">{% if row.weeks[w] %}✓{% else %}✗{% endif %}</td>
+          <td class="mono upload-mark {% if row.weeks[w] %}upload-mark-ok{% else %}upload-mark-miss{% endif %}{% if w == week %} upload-summary-col-active{% endif %}">{% if row.weeks[w] %}✓{% else %}✗{% endif %}</td>
           {% endfor %}
         </tr>
         {% endfor %}

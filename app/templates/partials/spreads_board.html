@@ -4,8 +4,8 @@
     <thead>
       <tr>
         <th>Date</th>
-        <th>Home Team</th>
         <th>Away Team</th>
+        <th>Home Team</th>
         <th>Spread</th>
       </tr>
     </thead>
@@ -13,8 +13,8 @@
       {% for r in rows %}
       <tr>
         <td class="mono">{{ r.date or "—" }}</td>
-        <td>{{ r.home_team }}</td>
         <td>{{ r.away_team }}</td>
+        <td>{{ r.home_team }}</td>
         <td class="spread">{% if r.vegas_hint %}<span class="tip">{{ r.vegas_hint }}</span>{% endif %}{{ r.vegas or "—" }}</td>
       </tr>
       {% else %}
