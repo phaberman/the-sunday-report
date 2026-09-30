@@ -9,7 +9,7 @@
           <th>Matchup</th>
           {% if entry_source == "vegas" %}
           <th>Favorite</th>
-          <th>Points</th>
+          <th>Line</th>
           {% else %}
           <th>Pick</th>
           {% endif %}
@@ -80,7 +80,7 @@
     </table>
   </div>
   {% if entry_source == "vegas" %}
-  <p class="muted enter-hint">Points: positive = home favored, negative = away favored. Blank rows are skipped.</p>
+  <p class="muted enter-hint">Spread: positive = home favored, negative = away favored. Blank rows are skipped.</p>
   {% else %}
   <p class="muted enter-hint">Cover = favorite ATS · Points = underdog. Blank rows are skipped.</p>
   {% endif %}

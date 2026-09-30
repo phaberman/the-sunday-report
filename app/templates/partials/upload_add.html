@@ -2,8 +2,6 @@
 <p class="upload-banner">Editing <strong>{{ pick_slot_label }}</strong> · Week {{ week }}</p>
 {% elif slot_blocked %}
 <p class="upload-banner muted">Already uploaded — use <strong>Adjust</strong> from Status, or pick another source.</p>
-{% else %}
-<p class="muted">Week {{ week }} · {{ pick_slot_label }}</p>
 {% endif %}
 
 <form class="upload-form" method="post" action="/upload" enctype="multipart/form-data" id="upload-form"{% if form_disabled %} data-disabled="1"{% endif %}>

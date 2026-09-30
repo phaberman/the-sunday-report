@@ -1,62 +1,23 @@
-<div class="upload-section">
-  <span class="upload-label">Season overview</span>
-  <div class="table-card upload-summary-wrap">
-    <table class="upload-summary">
-      <thead>
-        <tr>
-          <th>Source</th>
-          {% for w in summary_weeks %}
-          <th>W{{ w }}</th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in upload_summary %}
-        <tr>
-          <td>{{ row.label }}</td>
-          {% for w in summary_weeks %}
-          <td class="mono upload-mark">{% if row.weeks[w] %}✓{% else %}✗{% endif %}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{% set uploaded_count = slot_rows|selectattr('uploaded')|list|length %}
 
-<div class="upload-section">
-  <span class="upload-label">Week {{ week }}</span>
-  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
-    {% for w in weeks %}
-    <label class="chip{% if (default_season, w) in past_weeks %} chip-past{% endif %}">
-      <input type="radio" name="status_week" value="{{ w }}"
-        {% if w == week %}checked{% endif %}
-        hx-get="/upload?view=status&amp;week={{ w }}"
-        hx-target="#upload-panel"
-        hx-swap="outerHTML">
-      <span>{{ w }}</span>
-    </label>
-    {% endfor %}
-  </div>
-  {% if week_complete %}
-  <p class="muted week-status-msg">All four sources uploaded for week {{ week }}.</p>
-  {% else %}
-  <p class="muted week-status-msg">{{ slot_rows|selectattr('uploaded')|list|length }} of 4 uploaded.</p>
-  {% endif %}
-</div>
-
-<div class="upload-section">
-  <span class="upload-label">Slots</span>
-  <ul class="slot-cards">
-    {% for s in slot_rows %}
-    <li class="slot-card{% if s.uploaded %} slot-card-done{% endif %}">
-      <div class="slot-card-head">
-        <span class="slot-card-title">{{ s.label }}</span>
-        <span class="slot-card-state">{% if s.uploaded %}Uploaded{% else %}Missing{% endif %}</span>
+<div class="status-week-block">
+  <div class="status-week-head">
+    <div class="status-week-meta">
+      <span class="status-week-count">{{ uploaded_count }} of 4 uploaded</span>
+      <div class="status-progress" role="progressbar" aria-valuenow="{{ uploaded_count }}" aria-valuemin="0" aria-valuemax="4" aria-label="Week upload progress">
+        <span class="status-progress-fill" style="width: {{ (uploaded_count / 4 * 100) | round(1) }}%"></span>
       </div>
-      <div class="slot-card-actions">
+    </div>
+  </div>
+
+  <ul class="slot-checklist">
+    {% for s in slot_rows %}
+    <li class="slot-checklist-row{% if s.uploaded %} slot-checklist-done{% endif %}">
+      <span class="slot-checklist-name">{{ s.label }}</span>
+      <span class="slot-checklist-state">{% if s.uploaded %}Uploaded{% else %}Missing{% endif %}</span>
+      <div class="slot-checklist-actions">
         {% if s.uploaded %}
-        <a class="btn-secondary btn-sm"
+        <a class="btn btn-ghost btn-sm slot-action-btn"
           href="/upload?view=add&amp;week={{ week }}&amp;slot={{ s.key }}&amp;adjust=1"
           hx-get="/upload?view=add&amp;week={{ week }}&amp;slot={{ s.key }}&amp;adjust=1"
           hx-target="#upload-panel"
@@ -66,17 +27,44 @@
           <input type="hidden" name="season" value="{{ default_season }}">
           <input type="hidden" name="week" value="{{ week }}">
           <input type="hidden" name="slot" value="{{ s.key }}">
-          <button type="submit" class="btn-link btn-danger">Delete</button>
+          <button type="submit" class="btn btn-sm slot-action-btn btn-danger-ghost">Delete</button>
         </form>
         {% else %}
-        <a class="btn-primary btn-sm"
+        <a class="btn btn-primary btn-sm slot-action-btn"
           href="/upload?view=add&amp;week={{ week }}&amp;slot={{ s.key }}"
           hx-get="/upload?view=add&amp;week={{ week }}&amp;slot={{ s.key }}"
           hx-target="#upload-panel"
-          hx-swap="outerHTML">Add picks</a>
+          hx-swap="outerHTML"
+          title="Add picks">Add</a>
         {% endif %}
       </div>
     </li>
     {% endfor %}
   </ul>
 </div>
+
+<details class="status-season-details">
+  <summary class="status-season-summary">Season overview (4 sources × 18 weeks)</summary>
+  <div class="table-card upload-summary-wrap">
+    <table class="upload-summary">
+      <thead>
+        <tr>
+          <th>Source</th>
+          {% for w in summary_weeks %}
+          <th class="{% if w == week %}upload-summary-col-active{% endif %}">W{{ w }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in upload_summary %}
+        <tr>
+          <td>{{ row.label }}</td>
+          {% for w in summary_weeks %}
+          <td class="mono upload-mark{% if w == week %} upload-summary-col-active{% endif %}">{% if row.weeks[w] %}✓{% else %}✗{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>

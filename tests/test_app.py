@@ -329,7 +329,8 @@ def test_upload_page_defaults_to_status_view():
     with TestClient(app) as client:
         r = client.get("/upload")
         assert r.status_code == 200
-        assert "Upload summary" in r.text or "Season overview" in r.text
+        assert "Season overview" in r.text
+        assert "slot-checklist" in r.text
         assert "upload-panel" in r.text
         assert 'value="status"' in r.text
 

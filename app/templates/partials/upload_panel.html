@@ -1,8 +1,8 @@
 <div id="upload-panel" class="upload-panel">
-<p class="muted">{{ default_season }} season · picks upload</p>
+<p class="muted">{{ default_season }} · Week {{ week }}</p>
 
 <div class="toolbar matchups-toolbar upload-toolbar">
-  <div class="seg seg-mode upload-view" role="radiogroup" aria-label="Upload view">
+  <div class="seg upload-view scoreboard-view" role="radiogroup" aria-label="Upload view">
     <label class="seg-opt">
       <input type="radio" name="upload_view" value="status"
         {% if view == "status" %}checked{% endif %}
@@ -19,6 +19,18 @@
         hx-swap="outerHTML">
       <span>Add picks</span>
     </label>
+  </div>
+  <div class="chip-row matchups-weeks" role="radiogroup" aria-label="Week">
+    {% for w in weeks %}
+    <label class="chip{% if (default_season, w) in past_weeks %} chip-past{% endif %}">
+      <input type="radio" name="status_week" value="{{ w }}"
+        {% if w == week %}checked{% endif %}
+        hx-get="/upload?view={{ view }}&amp;week={{ w }}{% if view == 'add' %}&amp;slot={{ pick_slot }}{% if adjust %}&amp;adjust=1{% endif %}{% endif %}"
+        hx-target="#upload-panel"
+        hx-swap="outerHTML">
+      <span>{{ w }}</span>
+    </label>
+    {% endfor %}
   </div>
 </div>
 

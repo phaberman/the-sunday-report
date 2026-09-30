@@ -335,6 +335,20 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   flex: 1 1 auto;
   min-width: 0;
 }
+.matchups-toolbar .matchups-weeks {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 4px;
+}
+.matchups-toolbar .matchups-weeks .chip {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.matchups-toolbar .matchups-weeks .chip span {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 4px;
+}
 .matchups-actions {
   flex-shrink: 0;
   margin-left: auto;
@@ -540,7 +554,18 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   cursor: pointer;
 }
 .btn-secondary:hover { border-color: var(--navy); }
-.upload-toolbar { margin-bottom: 12px; }
+.upload-toolbar {
+  width: 100%;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.upload-toolbar .upload-view {
+  width: auto;
+  max-width: 14rem;
+  flex: 0 0 auto;
+  grid-template-columns: 1fr 1fr;
+}
 .upload-banner {
   margin: 0 0 12px;
   padding: 10px 12px;
@@ -554,43 +579,134 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 @media (min-width: 520px) {
   .seg-pick { grid-template-columns: repeat(4, 1fr); }
 }
-.slot-cards {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr;
-}
-@media (min-width: 640px) {
-  .slot-cards { grid-template-columns: repeat(2, 1fr); }
-}
-.slot-card {
+.status-week-block {
+  margin-top: 4px;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 12px;
   background: #fff;
+  overflow: hidden;
 }
-.slot-card-done { border-color: rgba(1, 51, 105, 0.25); }
-.slot-card-head {
+.status-week-head {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(1, 51, 105, 0.03);
 }
-.slot-card-title { font-weight: 600; }
-.slot-card-state {
+.status-week-meta {
+  width: 100%;
+  max-width: 14rem;
+  margin-left: auto;
+}
+.status-week-count {
+  display: block;
   font-size: 12px;
   color: var(--muted, #666);
+  margin-bottom: 6px;
+  text-align: right;
 }
-.slot-card-actions {
+.status-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(1, 51, 105, 0.1);
+  overflow: hidden;
+}
+.status-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--navy);
+}
+.slot-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.slot-checklist-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.slot-checklist-row:last-child { border-bottom: none; }
+.slot-checklist-name { font-weight: 600; }
+.slot-checklist-state {
+  font-size: 12px;
+  color: var(--muted, #666);
+  text-align: right;
+}
+.slot-checklist-done .slot-checklist-state { color: var(--navy); }
+.slot-checklist-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 8px;
   flex-wrap: wrap;
 }
-.week-status-msg { margin: 8px 0 0; }
+.slot-checklist-actions .slot-delete {
+  display: inline-flex;
+  margin: 0;
+}
+.slot-checklist-actions .slot-action-btn {
+  min-width: 4.75rem;
+  width: 4.75rem;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 650;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+.btn-danger-ghost {
+  background: #fff;
+  color: #a33;
+  border: 1px solid #d4a0a0;
+}
+.btn-danger-ghost:hover {
+  background: #a33;
+  border-color: #a33;
+  color: #fff;
+}
+@media (max-width: 480px) {
+  .slot-checklist-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+  .slot-checklist-name { grid-column: 1; }
+  .slot-checklist-state { grid-column: 2; }
+  .slot-checklist-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .status-week-count { text-align: left; }
+}
+.status-season-details {
+  margin-top: 16px;
+}
+.status-season-summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  padding: 8px 0;
+  list-style: none;
+}
+.status-season-summary::-webkit-details-marker { display: none; }
+.status-season-summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.status-season-details[open] .status-season-summary::before {
+  transform: rotate(90deg);
+}
+.upload-summary-col-active {
+  background: rgba(1, 51, 105, 0.08);
+}
 .upload-actions {
   display: flex;
   justify-content: flex-end;
