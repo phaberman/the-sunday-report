@@ -6,7 +6,7 @@ from datetime import date
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app import db, ingest, odds
 from app.db import (
@@ -233,6 +233,27 @@ def upload_form(
         slot=slot,
         model_version=model_version,
         adjust=adjust,
+    )
+
+
+@router.get("/upload/template")
+def upload_template(
+    conn: DbConn,
+    week: int | None = None,
+    season: int | None = None,
+    source: str = "model",
+):
+    source = (source or "model").strip().lower()
+    if source not in ingest.SOURCES:
+        source = "model"
+    picked_season, shown = _resolve_week(conn, week)
+    season = season or picked_season
+    body = ingest.upload_template_csv(conn, season=season, week=shown, source=source)
+    name = f"{season}_week_{shown:02d}_{source}_template.csv"
+    return Response(
+        content=body,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
 
 

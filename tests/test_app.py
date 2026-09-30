@@ -341,6 +341,42 @@ def test_upload_add_view_has_entry_form():
         assert r.status_code == 200
         assert "Enter spreads" in r.text
         assert 'id="mode-enter"' in r.text
+        assert "Download CSV template" in r.text
+
+
+def test_upload_template_csv(tmp_path: Path):
+    import csv
+    import io
+
+    from app.schedule import apply_schedule_rows
+
+    session = db.init(db.connect(tmp_path / "tpl.db"))
+    apply_schedule_rows(
+        session,
+        [
+            {
+                "season": 2026,
+                "week": 3,
+                "gameday": "2026-09-20",
+                "gametime": "13:00",
+                "away_team": "NE",
+                "home_team": "SEA",
+                "away_score": None,
+                "home_score": None,
+            },
+        ],
+    )
+    raw = ingest.upload_template_csv(session, season=2026, week=3, source="model")
+    rows = list(csv.DictReader(io.StringIO(raw.decode())))
+    assert rows == [{"away_team": "NE", "home_team": "SEA", "decision": ""}]
+    vegas = list(
+        csv.DictReader(
+            io.StringIO(
+                ingest.upload_template_csv(session, season=2026, week=3, source="vegas").decode()
+            )
+        )
+    )
+    assert vegas == [{"away_team": "NE", "home_team": "SEA", "spread": ""}]
 
 
 def test_upload_entries_empty_week():

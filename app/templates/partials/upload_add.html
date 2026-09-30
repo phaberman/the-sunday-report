@@ -60,6 +60,10 @@
       <span class="drop-title" id="drop-title">Drop CSV or Excel here</span>
       <span class="drop-sub" id="drop-sub">or click to browse</span>
     </label>
+    <p class="drop-template">
+      <a class="btn-link" href="/upload/template?week={{ week }}&amp;season={{ default_season }}&amp;source={{ form_source }}">Download CSV template</a>
+      <span class="muted">for week {{ week }}</span>
+    </p>
     <div class="schema-help">
       <p class="upload-label">Format · CSV or Excel</p>
       <p class="muted schema-cols" id="schema-vegas" {% if form_source != "vegas" %}hidden{% endif %}>Vegas: away_team · home_team · spread (team line or home margin)</p>

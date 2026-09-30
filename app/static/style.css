@@ -492,6 +492,12 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   border-style: solid;
   border-color: var(--navy);
 }
+.drop-template {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+.drop-template .muted { font-size: 12px; }
 .upload-summary-wrap {
   overflow-x: auto;
   margin-top: 6px;
@@ -836,7 +842,7 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   white-space: nowrap;
 }
 .enter-hint, .empty-entries { margin: 10px 0 0; }
-.schema-help { margin-top: 18px; }
+.schema-help { margin-top: 16px; }
 .schema-cols { margin: 0 0 10px; }
 .schema-table { font-size: 13px; }
 .picks-table th.group {

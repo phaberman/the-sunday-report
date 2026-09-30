@@ -44,6 +44,30 @@ def _norm_row(row: dict) -> dict:
     }
 
 
+def upload_template_csv(session, *, season: int, week: int, source: str) -> bytes:
+    """Week matchup template for file upload; spread/decision column left blank."""
+    if source not in SOURCES:
+        raise ValueError(f"unknown source {source!r}")
+    buf = io.StringIO()
+    if source == "vegas":
+        fields = ["away_team", "home_team", "spread"]
+        blank = {"spread": ""}
+    else:
+        fields = ["away_team", "home_team", "decision"]
+        blank = {"decision": ""}
+    writer = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n")
+    writer.writeheader()
+    for m in matchups_for(session, season, week):
+        writer.writerow(
+            {
+                "away_team": m.away_team,
+                "home_team": m.home_team,
+                **blank,
+            }
+        )
+    return buf.getvalue().encode("utf-8")
+
+
 def _rows_from_csv(text: str) -> list[dict]:
     f = io.StringIO(text)
     reader = csv.DictReader(f)
