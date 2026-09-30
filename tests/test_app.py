@@ -368,7 +368,44 @@ def test_upload_template_csv(tmp_path: Path):
     )
     raw = ingest.upload_template_csv(session, season=2026, week=3, source="model")
     rows = list(csv.DictReader(io.StringIO(raw.decode())))
-    assert rows == [{"away_team": "NE", "home_team": "SEA", "decision": ""}]
+    assert rows == [
+        {"away_team": "NE", "home_team": "SEA", "spread": "", "decision": ""}
+    ]
+    m = db.matchups_for(session, 2026, 3)[0]
+    from app.models import Pick
+
+    session.add(
+        Pick(matchup_id=m.id, spread=3.5, source="vegas", bookmaker="DraftKings")
+    )
+    session.commit()
+    rows = list(
+        csv.DictReader(
+            io.StringIO(
+                ingest.upload_template_csv(session, season=2026, week=3, source="model").decode()
+            )
+        )
+    )
+    assert rows[0]["spread"] == "SEA -3.5"
+    assert rows[0]["decision"] == ""
+    inserted, skipped = ingest.ingest_rows(
+        session,
+        [
+            {
+                "away_team": "NE",
+                "home_team": "SEA",
+                "spread": "NE -99",
+                "decision": "cover",
+            }
+        ],
+        season=2026,
+        week=3,
+        source="model",
+        model_version="t",
+    )
+    assert inserted == 1
+    pick = db.latest_slot_pick(session, matchup_id=m.id, slot_key="model")
+    assert pick is not None
+    assert pick.decision == "cover"
     vegas = list(
         csv.DictReader(
             io.StringIO(

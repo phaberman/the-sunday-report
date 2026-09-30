@@ -44,27 +44,32 @@ def _norm_row(row: dict) -> dict:
     }
 
 
+def _vegas_spread_display(session, m: Matchup) -> str:
+    vegas_pick = latest_slot_pick(session, matchup_id=m.id, slot_key="vegas")
+    if vegas_pick and not vegas_pick.decision:
+        return format_spread(m.away_team, m.home_team, vegas_pick.spread)
+    return ""
+
+
 def upload_template_csv(session, *, season: int, week: int, source: str) -> bytes:
-    """Week matchup template for file upload; spread/decision column left blank."""
+    """Week matchup template for file upload."""
     if source not in SOURCES:
         raise ValueError(f"unknown source {source!r}")
     buf = io.StringIO()
     if source == "vegas":
         fields = ["away_team", "home_team", "spread"]
-        blank = {"spread": ""}
     else:
-        fields = ["away_team", "home_team", "decision"]
-        blank = {"decision": ""}
+        fields = ["away_team", "home_team", "spread", "decision"]
     writer = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n")
     writer.writeheader()
     for m in matchups_for(session, season, week):
-        writer.writerow(
-            {
-                "away_team": m.away_team,
-                "home_team": m.home_team,
-                **blank,
-            }
-        )
+        row = {"away_team": m.away_team, "home_team": m.home_team}
+        if source == "vegas":
+            row["spread"] = ""
+        else:
+            row["spread"] = _vegas_spread_display(session, m)
+            row["decision"] = ""
+        writer.writerow(row)
     return buf.getvalue().encode("utf-8")
 
 
@@ -216,6 +221,7 @@ def ingest_rows(
                 bookmaker=bookmaker,
             )
         else:
+            # ponytail: optional spread column in file is reference-only; grading uses DB Vegas line.
             decision = _decision_text(row)
             pick = add_pick(
                 session,

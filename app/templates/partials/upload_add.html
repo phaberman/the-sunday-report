@@ -67,7 +67,7 @@
     <div class="schema-help">
       <p class="upload-label">Format · CSV or Excel</p>
       <p class="muted schema-cols" id="schema-vegas" {% if form_source != "vegas" %}hidden{% endif %}>Vegas: away_team · home_team · spread (team line or home margin)</p>
-      <p class="muted schema-cols" id="schema-decision" {% if form_source == "vegas" %}hidden{% endif %}>Model / user: away_team · home_team · decision (cover or points)</p>
+      <p class="muted schema-cols" id="schema-decision" {% if form_source == "vegas" %}hidden{% endif %}>Model / user: away_team · home_team · spread (reference, optional) · decision (cover or points)</p>
       <div class="table-card schema-table" id="schema-table-vegas" {% if form_source != "vegas" %}hidden{% endif %}>
         <table>
           <thead>
@@ -87,13 +87,14 @@
       <div class="table-card schema-table" id="schema-table-decision" {% if form_source == "vegas" %}hidden{% endif %}>
         <table>
           <thead>
-            <tr><th>away_team</th><th>home_team</th><th>decision</th></tr>
+            <tr><th>away_team</th><th>home_team</th><th>spread</th><th>decision</th></tr>
           </thead>
           <tbody>
             {% for r in sample_rows_decision %}
             <tr>
               <td class="mono">{{ r.away_team }}</td>
               <td class="mono">{{ r.home_team }}</td>
+              <td class="mono">{{ r.spread }}</td>
               <td class="mono">{{ r.decision }}</td>
             </tr>
             {% endfor %}

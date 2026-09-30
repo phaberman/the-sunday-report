@@ -29,8 +29,8 @@ SAMPLE_ROWS_VEGAS = [
     {"away_team": "SF", "home_team": "LA", "spread": "3.5"},
 ]
 SAMPLE_ROWS_DECISION = [
-    {"away_team": "NE", "home_team": "SEA", "decision": "cover"},
-    {"away_team": "SF", "home_team": "LA", "decision": "points"},
+    {"away_team": "NE", "home_team": "SEA", "spread": "SEA -3.5", "decision": "cover"},
+    {"away_team": "SF", "home_team": "LA", "spread": "LA -3.5", "decision": "points"},
 ]
 
 _SLOT_LABELS = {key: label for key, label in UPLOAD_SUMMARY_ROWS}
