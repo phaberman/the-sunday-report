@@ -1,0 +1,30 @@
+<div id="upload-panel" class="upload-panel">
+<p class="muted">{{ default_season }} season · picks upload</p>
+
+<div class="toolbar matchups-toolbar upload-toolbar">
+  <div class="seg seg-mode upload-view" role="radiogroup" aria-label="Upload view">
+    <label class="seg-opt">
+      <input type="radio" name="upload_view" value="status"
+        {% if view == "status" %}checked{% endif %}
+        hx-get="/upload?view=status&amp;week={{ week }}"
+        hx-target="#upload-panel"
+        hx-swap="outerHTML">
+      <span>Status</span>
+    </label>
+    <label class="seg-opt">
+      <input type="radio" name="upload_view" value="add"
+        {% if view == "add" %}checked{% endif %}
+        hx-get="/upload?view=add&amp;week={{ week }}&amp;slot={{ pick_slot }}"
+        hx-target="#upload-panel"
+        hx-swap="outerHTML">
+      <span>Add picks</span>
+    </label>
+  </div>
+</div>
+
+{% if view == "status" %}
+{% include "partials/upload_status.html" %}
+{% else %}
+{% include "partials/upload_add.html" %}
+{% endif %}
+</div>

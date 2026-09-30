@@ -325,14 +325,21 @@ def test_scoreboard_htmx_returns_board_fragment():
         assert "matchups-weeks" in r.text
 
 
-def test_upload_page_defaults_to_enter_spreads():
+def test_upload_page_defaults_to_status_view():
     with TestClient(app) as client:
         r = client.get("/upload")
         assert r.status_code == 200
+        assert "Upload summary" in r.text or "Season overview" in r.text
+        assert "upload-panel" in r.text
+        assert 'value="status"' in r.text
+
+
+def test_upload_add_view_has_entry_form():
+    with TestClient(app) as client:
+        r = client.get("/upload", params={"view": "add", "week": 1, "slot": "vegas"})
+        assert r.status_code == 200
         assert "Enter spreads" in r.text
         assert 'id="mode-enter"' in r.text
-        assert "away_team" in r.text
-        assert "decision" in r.text
 
 
 def test_upload_entries_empty_week():
@@ -703,7 +710,19 @@ def test_upload_summary_marks_weeks(tmp_path: Path):
 
 def test_upload_page_shows_summary_table():
     with TestClient(app) as client:
-        r = client.get("/upload")
+        r = client.get("/upload", params={"view": "status"})
         assert r.status_code == 200
-        assert "Upload summary" in r.text
+        assert "Season overview" in r.text
         assert "Vegas" in r.text
+
+
+def test_upload_panel_htmx_swap():
+    with TestClient(app) as client:
+        r = client.get(
+            "/upload",
+            params={"view": "add", "week": 2, "slot": "model"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+        assert 'id="upload-panel"' in r.text
+        assert "Add picks" in r.text or "Log picks" in r.text

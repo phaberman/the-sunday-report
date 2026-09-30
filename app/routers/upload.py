@@ -14,12 +14,11 @@ from app.db import (
     UPLOAD_VEGAS_BOOK,
     UPLOAD_USERS,
     delete_slot,
-    slot_key_for_upload,
     upload_summary,
     week_slots_uploaded,
     week_upload_complete,
 )
-from app.deps import DbConn, SEASON, templates
+from app.deps import DbConn, SEASON, is_htmx, templates
 from app.routers.matchups import _pick_week
 
 router = APIRouter()
@@ -33,6 +32,9 @@ SAMPLE_ROWS_DECISION = [
     {"away_team": "SF", "home_team": "LA", "decision": "points"},
 ]
 
+_SLOT_LABELS = {key: label for key, label in UPLOAD_SUMMARY_ROWS}
+_VALID_SLOTS = frozenset(_SLOT_LABELS)
+
 
 def _upload_ctx(
     conn,
@@ -41,37 +43,28 @@ def _upload_ctx(
     error: str = "",
     season: int | None = None,
     week: int = 1,
-    source: str = "vegas",
+    view: str = "status",
+    pick_slot: str = "vegas",
     username: str = "",
     model_version: str = "",
     entry_rows: list[dict] | None = None,
     past_weeks: set[tuple[int, int]] | None = None,
     adjust: bool = False,
-    adjust_slot: str = "",
 ) -> dict:
     season = season or date.today().year
     slots = week_slots_uploaded(conn, season=season, week=week)
     complete = week_upload_complete(conn, season=season, week=week)
-    slot_blocked = False
-    try:
-        bm, user, _ = _norm_meta(source, username, "")
-        sk = slot_key_for_upload(source, user)
-        slot_blocked = slots.get(sk, False) and not adjust
-    except ValueError:
-        slot_blocked = False
-    slot_rows = []
-    for key, label in UPLOAD_SUMMARY_ROWS:
-        slot_rows.append(
-            {
-                "key": key,
-                "label": label,
-                "uploaded": slots.get(key, False),
-            }
-        )
+    form_source, slot_username, _ = _source_for_slot(pick_slot)
+    slot_blocked = slots.get(pick_slot, False) and not adjust
+    slot_rows = [
+        {"key": key, "label": label, "uploaded": slots.get(key, False)}
+        for key, label in UPLOAD_SUMMARY_ROWS
+    ]
     return {
         "flash": flash,
         "error": error,
         "nav": "upload",
+        "view": view,
         "default_season": season,
         "week": week,
         "weeks": list(range(1, 19)),
@@ -80,10 +73,12 @@ def _upload_ctx(
         "usernames": list(UPLOAD_USERS),
         "sample_rows_vegas": SAMPLE_ROWS_VEGAS,
         "sample_rows_decision": SAMPLE_ROWS_DECISION,
-        "source": source,
-        "entry_source": source,
+        "pick_slot": pick_slot,
+        "pick_slot_label": _SLOT_LABELS.get(pick_slot, pick_slot),
+        "form_source": form_source,
+        "entry_source": form_source,
         "bookmaker": UPLOAD_VEGAS_BOOK,
-        "username": username,
+        "username": slot_username or username,
         "model_version": model_version,
         "entry_rows": entry_rows or [],
         "past_weeks": past_weeks or set(),
@@ -91,8 +86,8 @@ def _upload_ctx(
         "week_complete": complete,
         "slot_rows": slot_rows,
         "adjust": adjust,
-        "adjust_slot": adjust_slot,
-        "form_disabled": (complete and not adjust) or slot_blocked,
+        "adjust_slot": pick_slot if adjust else "",
+        "form_disabled": slot_blocked,
         "slot_blocked": slot_blocked,
     }
 
@@ -130,6 +125,85 @@ def _source_for_slot(slot_key: str) -> tuple[str, str, str]:
     raise ValueError(f"unknown slot {slot_key}")
 
 
+def _resolve_pick_slot(conn, season: int, week: int, slot: str) -> str:
+    if slot in _VALID_SLOTS:
+        return slot
+    slots = week_slots_uploaded(conn, season=season, week=week)
+    for key, _ in UPLOAD_SUMMARY_ROWS:
+        if not slots.get(key):
+            return key
+    return "vegas"
+
+
+def _resolve_view(view: str, adjust: bool, slot: str) -> str:
+    if adjust and slot:
+        return "add"
+    if view in ("status", "add"):
+        return view
+    return "status"
+
+
+def _model_note_for_slot(conn, season: int, week: int, pick_slot: str) -> str:
+    if pick_slot != "model":
+        return ""
+    for m in db.matchups_for(conn, season, week):
+        pick = db.latest_slot_pick(conn, matchup_id=m.id, slot_key="model")
+        if pick and pick.model_version:
+            return pick.model_version
+    return ""
+
+
+def _render_upload(
+    request: Request,
+    conn,
+    *,
+    flash: str = "",
+    error: str = "",
+    week: int | None = None,
+    view: str = "status",
+    slot: str = "",
+    model_version: str = "",
+    adjust: int = 0,
+):
+    season, shown = _resolve_week(conn, week)
+    adjusting = bool(adjust) and bool(slot)
+    shown_view = _resolve_view(view, adjusting, slot)
+    pick_slot = _resolve_pick_slot(conn, season, shown, slot)
+    form_source, slot_user, _ = _source_for_slot(pick_slot)
+    note = (model_version or "").strip() or _model_note_for_slot(
+        conn, season, shown, pick_slot
+    )
+    bm, user, ver = _norm_meta(form_source, slot_user, note)
+    entry_rows: list[dict] = []
+    if shown_view == "add":
+        entry_rows = ingest.entry_rows_for(
+            conn,
+            season=season,
+            week=shown,
+            source=form_source,
+            username=user,
+            model_version=ver,
+            bookmaker=bm,
+            adjust=adjusting,
+        )
+    ctx = _upload_ctx(
+        conn,
+        flash=flash,
+        error=error,
+        season=season,
+        week=shown,
+        view=shown_view,
+        pick_slot=pick_slot,
+        username=slot_user,
+        model_version=note,
+        entry_rows=entry_rows,
+        past_weeks=set(odds.past_weeks(odds.load_schedule(conn))),
+        adjust=adjusting,
+    )
+    name = "partials/upload_panel.html" if is_htmx(request) else "upload.html"
+    return templates.TemplateResponse(request, name, ctx)
+
+
 @router.get("/upload", response_class=HTMLResponse)
 def upload_form(
     request: Request,
@@ -137,52 +211,21 @@ def upload_form(
     flash: str = "",
     error: str = "",
     week: int | None = None,
-    source: str = "vegas",
-    username: str = "",
+    view: str = "status",
+    slot: str = "",
     model_version: str = "",
     adjust: int = 0,
-    slot: str = "",
 ):
-    season, shown = _resolve_week(conn, week)
-    adjusting = bool(adjust) and slot
-    if adjusting:
-        source, username, model_version = _source_for_slot(slot)
-        if slot == "model" and not model_version:
-            model_version = ""
-    bm, user, ver = _norm_meta(source, username, model_version)
-    rows = ingest.entry_rows_for(
-        conn,
-        season=season,
-        week=shown,
-        source=source,
-        username=user,
-        model_version=ver,
-        bookmaker=bm,
-        adjust=adjusting,
-    )
-    if adjusting and slot == "model":
-        for m in db.matchups_for(conn, season, shown):
-            pick = db.latest_slot_pick(conn, matchup_id=m.id, slot_key="model")
-            if pick and pick.model_version and not model_version:
-                model_version = pick.model_version
-                break
-    return templates.TemplateResponse(
+    return _render_upload(
         request,
-        "upload.html",
-        _upload_ctx(
-            conn,
-            flash=flash,
-            error=error,
-            season=season,
-            week=shown,
-            source=source,
-            username=username or (user or ""),
-            model_version=model_version or (ver or ""),
-            entry_rows=rows,
-            past_weeks=set(odds.past_weeks(odds.load_schedule(conn))),
-            adjust=adjusting,
-            adjust_slot=slot if adjusting else "",
-        ),
+        conn,
+        flash=flash,
+        error=error,
+        week=week,
+        view=view,
+        slot=slot,
+        model_version=model_version,
+        adjust=adjust,
     )
 
 
@@ -270,7 +313,7 @@ async def upload(
     replace = bool((adjust or "").strip())
     if week_upload_complete(conn, season=season, week=week) and not replace:
         return RedirectResponse(
-            f"/upload?error={quote('Week complete — use Adjust on a slot to change picks')}&week={week}",
+            f"/upload?view=status&error={quote('Week complete — use Adjust on a slot')}&week={week}",
             status_code=303,
         )
     try:
@@ -307,9 +350,12 @@ async def upload(
             )
             msg = f"inserted+{inserted}+skipped+{skipped}+locked_or_blank+dups+{dups}"
     except Exception as e:
-        return RedirectResponse(f"/upload?error={quote(str(e))}&week={week}", status_code=303)
+        return RedirectResponse(
+            f"/upload?view=add&error={quote(str(e))}&week={week}",
+            status_code=303,
+        )
     return RedirectResponse(
-        f"/upload?flash={quote(msg)}&week={week}&source={quote(source)}",
+        f"/upload?view=status&flash={quote(msg)}&week={week}",
         status_code=303,
     )
 
@@ -326,7 +372,10 @@ def upload_delete(
         flash = f"deleted+{n}+picks+from+{slot}"
     except Exception as e:
         return RedirectResponse(
-            f"/upload?error={quote(str(e))}&week={week}",
+            f"/upload?view=status&error={quote(str(e))}&week={week}",
             status_code=303,
         )
-    return RedirectResponse(f"/upload?flash={quote(flash)}&week={week}", status_code=303)
+    return RedirectResponse(
+        f"/upload?view=status&flash={quote(flash)}&week={week}",
+        status_code=303,
+    )

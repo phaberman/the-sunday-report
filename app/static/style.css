@@ -525,6 +525,72 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   text-decoration: underline;
 }
 .btn-danger { color: #a33; }
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn-secondary:hover { border-color: var(--navy); }
+.upload-toolbar { margin-bottom: 12px; }
+.upload-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: rgba(1, 51, 105, 0.06);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.seg-pick {
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (min-width: 520px) {
+  .seg-pick { grid-template-columns: repeat(4, 1fr); }
+}
+.slot-cards {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .slot-cards { grid-template-columns: repeat(2, 1fr); }
+}
+.slot-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+}
+.slot-card-done { border-color: rgba(1, 51, 105, 0.25); }
+.slot-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.slot-card-title { font-weight: 600; }
+.slot-card-state {
+  font-size: 12px;
+  color: var(--muted, #666);
+}
+.slot-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.week-status-msg { margin: 8px 0 0; }
 .upload-actions {
   display: flex;
   justify-content: flex-end;

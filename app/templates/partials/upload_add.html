@@ -1,0 +1,237 @@
+{% if adjust %}
+<p class="upload-banner">Editing <strong>{{ pick_slot_label }}</strong> · Week {{ week }}</p>
+{% elif slot_blocked %}
+<p class="upload-banner muted">Already uploaded — use <strong>Adjust</strong> from Status, or pick another source.</p>
+{% else %}
+<p class="muted">Week {{ week }} · {{ pick_slot_label }}</p>
+{% endif %}
+
+<form class="upload-form" method="post" action="/upload" enctype="multipart/form-data" id="upload-form"{% if form_disabled %} data-disabled="1"{% endif %}>
+  <input type="hidden" name="season" id="season" value="{{ default_season }}">
+  <input type="hidden" name="week" value="{{ week }}">
+  <input type="hidden" name="mode" id="mode" value="enter">
+  <input type="hidden" name="bookmaker" id="bookmaker" value="{{ bookmaker }}">
+  <input type="hidden" name="source" id="form_source" value="{{ form_source }}">
+  <input type="hidden" name="username" id="username" value="{{ username }}">
+  {% if adjust %}<input type="hidden" name="adjust" value="1">{% endif %}
+
+  <div class="upload-section">
+    <span class="upload-label">Source</span>
+    <div class="seg seg-pick" role="radiogroup" aria-label="Pick source">
+      {% for s in slot_rows %}
+      <label class="seg-opt">
+        <input type="radio" name="pick_slot_ui" value="{{ s.key }}"
+          {% if pick_slot == s.key %}checked{% endif %}
+          hx-get="/upload?view=add&amp;week={{ week }}&amp;slot={{ s.key }}{% if adjust %}&amp;adjust=1{% endif %}"
+          hx-target="#upload-panel"
+          hx-swap="outerHTML">
+        <span>{{ s.label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if form_source == "model" %}
+  <div class="meta-row" id="model_meta">
+    <label class="upload-label" for="model_version">Note (optional)</label>
+    <input type="text" name="model_version" id="model_version" class="meta-other" placeholder="e.g. v2 rerun" value="{{ model_version }}">
+  </div>
+  {% endif %}
+
+  <div class="upload-section">
+    <span class="upload-label">How</span>
+    <div class="seg seg-mode" role="radiogroup" aria-label="Entry mode">
+      <label class="seg-opt">
+        <input type="radio" name="mode_choice" value="enter" checked>
+        <span>Enter spreads</span>
+      </label>
+      <label class="seg-opt">
+        <input type="radio" name="mode_choice" value="file">
+        <span>Upload file</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="upload-section" id="mode-enter">
+    {% include "partials/upload_entries.html" %}
+  </div>
+
+  <div class="upload-section" id="mode-file" hidden>
+    <label class="drop" id="drop">
+      <input type="file" name="file" id="file" accept=".csv,.xlsx,.xls">
+      <span class="drop-title" id="drop-title">Drop CSV or Excel here</span>
+      <span class="drop-sub" id="drop-sub">or click to browse</span>
+    </label>
+    <div class="schema-help">
+      <p class="upload-label">Format · CSV or Excel</p>
+      <p class="muted schema-cols" id="schema-vegas" {% if form_source != "vegas" %}hidden{% endif %}>Vegas: away_team · home_team · spread (team line or home margin)</p>
+      <p class="muted schema-cols" id="schema-decision" {% if form_source == "vegas" %}hidden{% endif %}>Model / user: away_team · home_team · decision (cover or points)</p>
+      <div class="table-card schema-table" id="schema-table-vegas" {% if form_source != "vegas" %}hidden{% endif %}>
+        <table>
+          <thead>
+            <tr><th>away_team</th><th>home_team</th><th>spread</th></tr>
+          </thead>
+          <tbody>
+            {% for r in sample_rows_vegas %}
+            <tr>
+              <td class="mono">{{ r.away_team }}</td>
+              <td class="mono">{{ r.home_team }}</td>
+              <td class="mono">{{ r.spread }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="table-card schema-table" id="schema-table-decision" {% if form_source == "vegas" %}hidden{% endif %}>
+        <table>
+          <thead>
+            <tr><th>away_team</th><th>home_team</th><th>decision</th></tr>
+          </thead>
+          <tbody>
+            {% for r in sample_rows_decision %}
+            <tr>
+              <td class="mono">{{ r.away_team }}</td>
+              <td class="mono">{{ r.home_team }}</td>
+              <td class="mono">{{ r.decision }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-actions">
+    <button class="btn-primary" type="submit" id="submit-btn" {% if form_disabled %}disabled{% endif %}>{% if adjust %}Save changes{% else %}Log picks{% endif %}</button>
+  </div>
+</form>
+
+<script>
+(function () {
+  const form = document.getElementById("upload-form");
+  if (!form) return;
+  const modeInput = document.getElementById("mode");
+  const modeEnter = document.getElementById("mode-enter");
+  const modeFile = document.getElementById("mode-file");
+  const formSource = document.getElementById("form_source");
+  const file = document.getElementById("file");
+  const schemaVegas = document.getElementById("schema-vegas");
+  const schemaDecision = document.getElementById("schema-decision");
+  const schemaTableVegas = document.getElementById("schema-table-vegas");
+  const schemaTableDecision = document.getElementById("schema-table-decision");
+  const drop = document.getElementById("drop");
+  const dropTitle = document.getElementById("drop-title");
+  const dropSub = document.getElementById("drop-sub");
+  const formDisabled = form.dataset.disabled === "1";
+
+  function source() {
+    return formSource ? formSource.value : "vegas";
+  }
+
+  function mode() {
+    const el = form.querySelector('input[name="mode_choice"]:checked');
+    return el ? el.value : "enter";
+  }
+
+  function syncMode() {
+    const m = mode();
+    modeInput.value = m;
+    modeEnter.hidden = m !== "enter";
+    modeFile.hidden = m !== "file";
+    if (file) file.required = m === "file";
+  }
+
+  function entriesUrl() {
+    const modelNote = document.getElementById("model_version");
+    const userHidden = document.getElementById("username");
+    const params = new URLSearchParams({
+      week: form.querySelector('input[name="week"]').value,
+      season: document.getElementById("season").value,
+      source: source(),
+      username: userHidden ? userHidden.value || "" : "",
+      model_version: modelNote ? modelNote.value || "" : "",
+    });
+    const adjustEl = form.querySelector('input[name="adjust"]');
+    if (adjustEl) params.set("adjust", "1");
+    return "/upload/entries?" + params.toString();
+  }
+
+  function syncFavoriteForRow(ptsInput) {
+    const row = ptsInput.closest("tr");
+    const display = row?.querySelector(".fav-display");
+    if (!display) return;
+    const away = display.dataset.away;
+    const home = display.dataset.home;
+    const raw = ptsInput.value.trim();
+    let fav = "";
+    if (raw !== "") {
+      const n = Number(raw);
+      if (!Number.isNaN(n)) {
+        if (n > 0) fav = home;
+        else if (n < 0) fav = away;
+      }
+    }
+    display.querySelectorAll(".fav-chip").forEach((chip) => {
+      chip.classList.toggle("fav-active", chip.dataset.team === fav);
+    });
+  }
+
+  function syncAllFavorites() {
+    form.querySelectorAll('input[name^="pts_"]').forEach(syncFavoriteForRow);
+  }
+
+  function reloadEntries() {
+    if (mode() !== "enter" || formDisabled) return;
+    fetch(entriesUrl(), { headers: { "HX-Request": "true" } })
+      .then((r) => r.text())
+      .then((html) => {
+        const box = document.getElementById("entries");
+        if (!box) return;
+        const wrap = document.createElement("div");
+        wrap.innerHTML = html.trim();
+        const next = wrap.querySelector("#entries") || wrap.firstElementChild;
+        if (next) box.replaceWith(next);
+        syncAllFavorites();
+      })
+      .catch(() => {});
+  }
+
+  form.querySelectorAll('input[name="mode_choice"]').forEach((el) => {
+    el.addEventListener("change", syncMode);
+  });
+  form.addEventListener("input", (e) => {
+    if (e.target.matches('input[name^="pts_"]')) syncFavoriteForRow(e.target);
+  });
+  const modelNote = document.getElementById("model_version");
+  if (modelNote) modelNote.addEventListener("change", reloadEntries);
+
+  if (drop && file) {
+    function showFile(f) {
+      if (!f) return;
+      dropTitle.textContent = f.name;
+      dropSub.textContent = (f.size / 1024).toFixed(1) + " KB";
+      drop.classList.add("has-file");
+    }
+    file.addEventListener("change", () => showFile(file.files[0]));
+    ["dragenter", "dragover"].forEach((ev) => {
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); });
+    });
+    ["dragleave", "drop"].forEach((ev) => {
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("dragover"); });
+    });
+    drop.addEventListener("drop", (e) => {
+      const f = e.dataTransfer.files[0];
+      if (!f) return;
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      file.files = dt.files;
+      showFile(f);
+    });
+  }
+
+  form.addEventListener("submit", () => { syncMode(); });
+
+  syncMode();
+  syncAllFavorites();
+})();
+</script>
