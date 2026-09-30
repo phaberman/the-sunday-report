@@ -619,33 +619,62 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   border-radius: 999px;
   background: var(--navy);
 }
+.slot-checklist-table {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 1fr) 10.75rem 5.25rem 10.5rem;
+  column-gap: 12px;
+  padding: 0 16px;
+}
 .slot-checklist {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: contents;
 }
+.slot-checklist-head,
 .slot-checklist-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px 12px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  padding: 12px 16px;
+}
+.slot-checklist-head {
+  padding: 10px 0 6px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #666);
+  border-bottom: 1px solid var(--line);
+}
+.slot-checklist-row {
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
 }
 .slot-checklist-row:last-child { border-bottom: none; }
 .slot-checklist-name { font-weight: 600; }
+.slot-checklist-at {
+  font-size: 12px;
+  color: var(--muted, #666);
+  white-space: nowrap;
+}
 .slot-checklist-state {
   font-size: 12px;
   color: var(--muted, #666);
-  text-align: right;
 }
 .slot-checklist-done .slot-checklist-state { color: var(--navy); }
+.slot-col-actions {
+  justify-self: center;
+  text-align: center;
+}
 .slot-checklist-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: max-content;
+  justify-self: center;
 }
 .slot-checklist-actions .slot-delete {
   display: inline-flex;
@@ -674,15 +703,32 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   color: #fff;
 }
 @media (max-width: 480px) {
+  .slot-checklist-table {
+    display: block;
+    padding: 0;
+  }
+  .slot-checklist {
+    display: block;
+  }
+  .slot-checklist-head { display: none; }
   .slot-checklist-row {
+    display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto;
+    padding: 12px 16px;
+    column-gap: 12px;
   }
   .slot-checklist-name { grid-column: 1; }
-  .slot-checklist-state { grid-column: 2; }
+  .slot-checklist-at {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    justify-self: start;
+  }
+  .slot-checklist-state { grid-column: 2; justify-self: end; }
   .slot-checklist-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
+    justify-self: start;
   }
   .status-week-count { text-align: left; }
 }

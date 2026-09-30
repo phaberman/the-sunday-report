@@ -16,6 +16,7 @@ from app.db import (
     delete_slot,
     upload_summary,
     week_slots_uploaded,
+    week_slots_uploaded_at,
     week_upload_complete,
 )
 from app.deps import DbConn, SEASON, is_htmx, templates
@@ -53,11 +54,17 @@ def _upload_ctx(
 ) -> dict:
     season = season or date.today().year
     slots = week_slots_uploaded(conn, season=season, week=week)
+    slot_times = week_slots_uploaded_at(conn, season=season, week=week)
     complete = week_upload_complete(conn, season=season, week=week)
     form_source, slot_username, _ = _source_for_slot(pick_slot)
     slot_blocked = slots.get(pick_slot, False) and not adjust
     slot_rows = [
-        {"key": key, "label": label, "uploaded": slots.get(key, False)}
+        {
+            "key": key,
+            "label": label,
+            "uploaded": slots.get(key, False),
+            "uploaded_at": odds.format_display_datetime(slot_times.get(key)),
+        }
         for key, label in UPLOAD_SUMMARY_ROWS
     ]
     return {

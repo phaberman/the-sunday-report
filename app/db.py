@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import and_, create_engine, delete, func, select, text
@@ -216,6 +217,25 @@ def week_slots_uploaded(session: Session, *, season: int, week: int) -> dict[str
         key: slot_uploaded(session, season=season, week=week, slot_key=key)
         for key, _ in UPLOAD_SUMMARY_ROWS
     }
+
+
+def week_slots_uploaded_at(
+    session: Session, *, season: int, week: int
+) -> dict[str, datetime | None]:
+    """Latest pick timestamp per upload slot for a week (adjust/replace updates this)."""
+    times: dict[str, datetime | None] = {key: None for key, _ in UPLOAD_SUMMARY_ROWS}
+    for slot_key, _ in UPLOAD_SUMMARY_ROWS:
+        source, username = _slot_meta(slot_key)
+        times[slot_key] = session.scalar(
+            select(func.max(Pick.created_at))
+            .join(Matchup, Matchup.id == Pick.matchup_id)
+            .where(
+                Matchup.season_year == season,
+                Matchup.season_week == week,
+                *_slot_pick_filters(source, username),
+            )
+        )
+    return times
 
 
 def week_upload_complete(session: Session, *, season: int, week: int) -> bool:

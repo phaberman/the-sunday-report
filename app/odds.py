@@ -140,6 +140,14 @@ def schedule_kickoff(gameday: str, gametime: str) -> str | None:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def format_display_datetime(dt: datetime | None) -> str:
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M")
+
+
 def format_kickoff(iso: str | None) -> str:
     if not iso:
         return ""

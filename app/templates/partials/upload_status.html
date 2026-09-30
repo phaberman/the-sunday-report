@@ -10,12 +10,20 @@
     </div>
   </div>
 
+  <div class="slot-checklist-table">
+  <div class="slot-checklist-head" aria-hidden="true">
+    <span class="slot-col-source">Source</span>
+    <span class="slot-col-at">Upload at</span>
+    <span class="slot-col-status">Status</span>
+    <span class="slot-col-actions">Actions</span>
+  </div>
   <ul class="slot-checklist">
     {% for s in slot_rows %}
     <li class="slot-checklist-row{% if s.uploaded %} slot-checklist-done{% endif %}">
-      <span class="slot-checklist-name">{{ s.label }}</span>
-      <span class="slot-checklist-state">{% if s.uploaded %}Uploaded{% else %}Missing{% endif %}</span>
-      <div class="slot-checklist-actions">
+      <span class="slot-checklist-name slot-col-source">{{ s.label }}</span>
+      <span class="slot-checklist-at slot-col-at mono">{% if s.uploaded_at %}{{ s.uploaded_at }}{% else %}—{% endif %}</span>
+      <span class="slot-checklist-state slot-col-status">{% if s.uploaded %}Uploaded{% else %}Missing{% endif %}</span>
+      <div class="slot-checklist-actions slot-col-actions">
         {% if s.uploaded %}
         <a class="btn btn-ghost btn-sm slot-action-btn"
           href="/upload?view=add&amp;week={{ week }}&amp;slot={{ s.key }}&amp;adjust=1"
@@ -41,6 +49,7 @@
     </li>
     {% endfor %}
   </ul>
+  </div>
 </div>
 
 <details class="status-season-details">

@@ -712,6 +712,9 @@ def test_upload_summary_marks_weeks(tmp_path: Path):
     vegas_row = next(r for r in summary if r["key"] == "vegas")
     assert vegas_row["weeks"][2] is True
     assert vegas_row["weeks"][1] is False
+    times = db.week_slots_uploaded_at(session, season=2026, week=2)
+    assert times["vegas"] is not None
+    assert times["model"] is None
 
 
 def test_upload_page_shows_summary_table():
@@ -719,6 +722,8 @@ def test_upload_page_shows_summary_table():
         r = client.get("/upload", params={"view": "status"})
         assert r.status_code == 200
         assert "Season overview" in r.text
+        assert "Upload at" in r.text
+        assert "Actions" in r.text
         assert "Vegas" in r.text
 
 
