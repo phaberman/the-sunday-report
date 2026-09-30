@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import os
 
 from sqlalchemy import and_, create_engine, delete, func, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Base, Matchup, Pick, matchup_id
+
 
 ROOT = Path(__file__).resolve().parent.parent
 UPLOAD_VEGAS_BOOK = "DraftKings"
@@ -19,7 +21,7 @@ UPLOAD_SUMMARY_ROWS: tuple[tuple[str, str], ...] = (
     ("Brett", "Brett"),
     ("Phillip", "Phillip"),
 )
-DB_PATH = ROOT / "data" / "sunday.db"
+DB_PATH = Path(os.environ.get("SUNDAY_DB", ROOT / "data" / "sunday.db"))
 LEGACY_TABLES = ("games", "vegas_spreads")
 
 
