@@ -17,6 +17,8 @@
     <thead>
       <tr>
         <th>Matchup</th>
+        <th>Away Pts</th>
+        <th>Home Pts</th>
         <th>Line</th>
         {% for mv in model_versions %}
         <th>Model</th>
@@ -26,14 +28,14 @@
         <th>{{ u }}</th>
         <th></th>
         {% endfor %}
-        <th>Away</th>
-        <th>Home</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
         <td>{{ r.matchup }}</td>
+        <td>{{ r.away_points if r.away_points is not none else "—" }}</td>
+        <td>{{ r.home_points if r.home_points is not none else "—" }}</td>
         <td class="spread">{{ r.vegas or "—" }}</td>
         {% for mv in model_versions %}
         <td>{{ r.models.get(mv, "—") }}</td>
@@ -43,8 +45,6 @@
         <td>{{ r.users.get(u, "—") }}</td>
         <td class="grade grade-{{ r.user_grades.get(u, '—') }}">{{ r.user_grades.get(u, "—") }}</td>
         {% endfor %}
-        <td>{{ r.away_points if r.away_points is not none else "—" }}</td>
-        <td>{{ r.home_points if r.home_points is not none else "—" }}</td>
       </tr>
       {% else %}
       <tr><td colspan="99">No games.</td></tr>
