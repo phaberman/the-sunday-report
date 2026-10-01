@@ -61,7 +61,7 @@ body {
   place-items: center;
 }
 .login-card {
-  width: 26rem;
+  width: min(26rem, calc(100vw - 32px));
   padding: 32px;
   background: var(--card);
   border: 1px solid var(--line);
@@ -106,7 +106,7 @@ h1 {
   background: #fff;
   color: var(--navy);
 }
-.main { padding: 28px 32px 48px; }
+.main { padding: 28px 0 48px; }
 .app-page {
   max-width: 960px;
   margin: 0 auto;
@@ -136,7 +136,7 @@ h1 {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
-  overflow: visible;
+  overflow-x: auto;
   box-shadow: 0 8px 24px rgba(1, 51, 105, 0.06);
 }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -992,4 +992,16 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
 .viz-week-user { background: var(--red); }
 @media (max-width: 640px) {
   .seg { max-width: none; }
+}
+@media (max-width: 720px) {
+  .wrap { padding: 0 14px; }
+  .top { height: auto; }
+  .top-inner { flex-wrap: wrap; gap: 8px; padding-block: 10px; }
+  .top-actions { width: 100%; margin-left: 0; }
+  .tabs, .tabs-4 { min-width: 0; flex: 1; }
+  .main { padding-top: 16px; }
+  th, td { padding: 8px; }
+  .toolbar button, .toolbar a.btn { width: auto; flex: 1; }
+  .matchups-toolbar, .matchups-toolbar .matchups-weeks { flex-wrap: wrap; }
+  .matchups-toolbar .matchups-weeks .chip { flex: 0 0 calc(100% / 9 - 4px); }
 }
