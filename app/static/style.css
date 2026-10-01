@@ -136,7 +136,7 @@ h1 {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
-  overflow-x: auto;
+  overflow: visible;
   box-shadow: 0 8px 24px rgba(1, 51, 105, 0.06);
 }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -768,7 +768,7 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   border-color: #a33;
   color: #fff;
 }
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .slot-checklist-table {
     display: block;
     padding: 0;
@@ -997,11 +997,26 @@ button.btn-primary:hover, .btn-primary:hover { background: var(--red-2); }
   .wrap { padding: 0 14px; }
   .top { height: auto; }
   .top-inner { flex-wrap: wrap; gap: 8px; padding-block: 10px; }
-  .top-actions { width: 100%; margin-left: 0; }
-  .tabs, .tabs-4 { min-width: 0; flex: 1; }
+  .top-actions { display: contents; }
+  .logout-form { margin-left: auto; }
+  .logout-form button { padding: 6px 12px; font-size: 13px; }
+  .tabs, .tabs-4 { min-width: 0; order: 1; flex: 1 1 100%; font-size: 12px; }
+  .tabs a { padding: 6px 4px; }
   .main { padding-top: 16px; }
   th, td { padding: 8px; }
   .toolbar button, .toolbar a.btn { width: auto; flex: 1; }
   .matchups-toolbar, .matchups-toolbar .matchups-weeks { flex-wrap: wrap; }
   .matchups-toolbar .matchups-weeks .chip { flex: 0 0 calc(100% / 9 - 4px); }
+  .table-card { overflow-x: auto; }
+  input, select, .enter-table .pts-input { font-size: 16px; }
+  .spread .tip {
+    display: block;
+    position: static;
+    max-width: none;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
+    font-size: 11px;
+  }
 }
