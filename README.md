@@ -20,7 +20,7 @@ uvicorn app.main:app --reload
 
 Open http://127.0.0.1:8000. `/` redirects to `/scoreboard`.
 
-Copy `.env.example` to `.env` for `ODDS_API_KEY` (odds refresh) and SMTP vars (email button). The app reads those from the environment; a `.env` file is optional when the variables are already set.
+Copy `.env.example` to `.env` for `ODDS_API_KEY` (odds refresh), SMTP vars (email button), and the shared login (`AUTH_USER`, `AUTH_PASSWORD`, `SESSION_SECRET`). The app reads those from the environment; a `.env` file is optional when the variables are already set. Set the same values on Render. If any login variable is missing, every page redirects to `/login` and login fails. Five wrong passwords from one IP in 15 minutes lock that IP until the window passes. The lock is in memory on the one web process.
 
 Layout:
 

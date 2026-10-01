@@ -11,6 +11,9 @@
   <header class="top">
     <div class="wrap top-inner">
       <h1>The Sunday Report</h1>
+      {% if request.session.get("user") %}
+      <form class="logout-form" method="post" action="/logout"><button type="submit">Log out</button></form>
+      {% endif %}
       <nav class="tabs tabs-4">
         <a href="/scoreboard" {% if nav == "scoreboard" %}class="active"{% endif %}>Scoreboard</a>
         <a href="/matchups" {% if nav == "matchups" %}class="active"{% endif %}>Matchups</a>
