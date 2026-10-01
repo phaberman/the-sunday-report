@@ -4,25 +4,37 @@ Probabilistic NFL game forecasts, published before kickoff and frozen.
 
 ## Setup
 
+`.python-version` is `3.12` so Render installs a real Python. Dependencies live in the `the-sunday-report-env` virtualenv. In each terminal where you run the app, tests, or scripts:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+pyenv shell the-sunday-report-env
 ```
+
+Use `pyenv shell`, not `pyenv local`. `pyenv local` writes the env name into `.python-version` and breaks the Render build.
+
+Or use a venv instead: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`.
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000
+Open http://127.0.0.1:8000. `/` redirects to `/scoreboard`.
+
+Copy `.env.example` to `.env` for `ODDS_API_KEY` (odds refresh) and SMTP vars (email button). The app reads those from the environment; a `.env` file is optional when the variables are already set.
 
 Layout:
 
 - `app/` — FastAPI app (`main.py`, `routers/`, Jinja templates, static)
-- `data/` — SQLite file (gitignored), schedule, optional pick CSVs for re-upload
+- `data/` — default SQLite file `data/sunday.db` (tracked in git), schedule, pick CSVs
 - `scripts/` — one-shot fetches, not the web process
 
-First launch creates `data/sunday.db`, loads the schedule into `matchups`, and creates empty `picks`. Legacy `games` / `vegas_spreads` tables are dropped on startup.
+The database path is `SUNDAY_DB` if set, otherwise `data/sunday.db`. Locally leave `SUNDAY_DB` unset. On Render it is `/var/data/sunday.db` on the persistent disk. Those files do not sync.
+
+Startup creates the file if it is missing, drops legacy `games` / `vegas_spreads` tables, and loads the schedule only when `matchups` is empty. A clone that already has `data/sunday.db` keeps the picks in that file.
+
+## Deploy (Render)
+
+Python web service, one instance. Build: `pip install -r requirements.txt`. Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Attach a disk at `/var/data` and set `SUNDAY_DB=/var/data/sunday.db` plus the same secrets as `.env.example`. Do not scale past one instance; the disk is not shared. Do not copy the git `data/sunday.db` over the disk file after the site is live.
 
 ## Data model
 

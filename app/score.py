@@ -446,4 +446,3 @@ def view_matchup(m: Matchup) -> dict:
         "away_score": m.away_score,
         "date": "",
     }
-
