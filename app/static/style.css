@@ -38,7 +38,22 @@ body {
 }
 .logout-form { margin: 0; }
 .logout-form button { color: #fff; background: transparent; border-color: rgba(255,255,255,.45); }
-.login-form { max-width: 20rem; display: grid; gap: 12px; margin-top: 8px; }
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+.login-card {
+  width: 26rem;
+  padding: 32px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+}
+.login-card button { justify-self: center; }
+.login-card h1 { color: var(--navy); text-align: center; }
 h1 {
   font-family: Georgia, "Times New Roman", serif;
   color: #fff;

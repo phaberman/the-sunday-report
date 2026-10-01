@@ -1,14 +1,22 @@
-{% extends "base.html" %}
-{% block body %}
-<form class="login-form" method="post" action="/login">
-  <h2>Log in</h2>
-  {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
-  <label>Username
-    <input name="username" autocomplete="username" required>
-  </label>
-  <label>Password
-    <input name="password" type="password" autocomplete="current-password" required>
-  </label>
-  <button class="btn-primary" type="submit">Log in</button>
-</form>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in · The Sunday Report</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-page">
+  <form class="login-card" method="post" action="/login">
+    <h1>The Sunday Report</h1>
+    {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
+    <label>Username
+      <input name="username" autocomplete="username" required>
+    </label>
+    <label>Password
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn-primary" type="submit">Log in</button>
+  </form>
+</body>
+</html>
